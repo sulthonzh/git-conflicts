@@ -1,0 +1,44 @@
+{
+  "name": "envguard",
+  "version": "1.0.0",
+  "description": "🔒 Validate .env files, detect secrets, keep env configs in sync",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "envguard": "./dist/index.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "commander": "^13.1.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  },
+  "peerDependencies": {
+    "commander": "^13.1.0"
+  },
+  "keywords": [
+    "env",
+    "dotenv",
+    "validate",
+    "secrets",
+    "cli",
+    "security"
+  ]
+}
