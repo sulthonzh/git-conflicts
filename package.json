@@ -1,10 +1,13 @@
 {
-  "name": "git-conflicts",
+  "name": "@sulthonzh/git-conflicts",
   "version": "1.0.0",
   "description": "Interactive CLI to list and resolve merge conflicts one file at a time with progress tracking.",
   "main": "dist/index.js",
   "bin": {
     "git-conflicts": "./dist/cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",
