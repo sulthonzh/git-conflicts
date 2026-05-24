@@ -1,5 +1,7 @@
 # envguard 🔒
 
+[![npm version](https://img.shields.io/npm/v/envguard.svg)](https://www.npmjs.com/package/envguard) [![license](https://img.shields.io/github/license/sulthonzh/envguard)](https://github.com/sulthonzh/envguard/blob/main/LICENSE) [![tests](https://img.shields.io/badge/tests-51%20passing-brightgreen)](https://github.com/sulthonzh/envguard)
+
 Validate `.env` files, detect secrets, keep env configs in sync.
 
 A zero-dependency CLI tool that catches missing variables, leaked secrets, and type mismatches before they hit production.
