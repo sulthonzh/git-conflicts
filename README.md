@@ -1,6 +1,6 @@
 # envguard 🔒
 
-[![npm version](https://img.shields.io/npm/v/envguard.svg)](https://www.npmjs.com/package/envguard) [![license](https://img.shields.io/github/license/sulthonzh/envguard)](https://github.com/sulthonzh/envguard/blob/main/LICENSE) [![tests](https://img.shields.io/badge/tests-51%20passing-brightgreen)](https://github.com/sulthonzh/envguard)
+[![npm version](https://img.shields.io/npm/v/envguard.svg)](https://www.npmjs.com/package/envguard) [![license](https://img.shields.io/github/license/sulthonzh/envguard)](https://github.com/sulthonzh/envguard/blob/main/LICENSE) [![tests](https://img.shields.io/badge/tests-62%20passing-brightgreen)](https://github.com/sulthonzh/envguard)
 
 Validate `.env` files, detect secrets, keep env configs in sync.
 
@@ -26,6 +26,24 @@ envguard check .env.local .env    # custom files
 ```
 
 Exit code 1 if issues found, 0 if clean.
+
+`--strict` — treat extra keys and all empty values as errors (not just `@required`):
+
+```bash
+envguard check --strict
+```
+
+### `envguard fix [env-file] [example-file]`
+
+Sync `.env` with `.env.example` — adds missing keys, optionally removes extras.
+
+```bash
+envguard fix                         # add missing keys
+envguard fix --prune                 # also remove keys not in .env.example
+envguard fix --sort                  # alphabetically sort keys
+envguard fix --dry-run               # preview changes without writing
+envguard fix -o .env.fixed           # write to a different file
+```
 
 ### `envguard diff [env-file] [example-file]`
 
@@ -112,7 +130,7 @@ Annotate your `.env.example` to enable type validation:
 git clone https://github.com/sulthonzh/envguard.git
 cd envguard
 npm install
-npm test          # 51 tests
+npm test          # 62 tests
 npm run build     # dual CJS/ESM
 ```
 

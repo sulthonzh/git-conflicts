@@ -6,13 +6,14 @@ import { runDiff } from "./commands/diff.js";
 import { runSecrets } from "./commands/secrets.js";
 import { runInit } from "./commands/init.js";
 import { runValidate } from "./commands/validate.js";
+import { runFix } from "./commands/fix.js";
 
 const program = new Command();
 
 program
   .name("envguard")
   .description("🔒 Validate .env files, detect secrets, keep env configs in sync")
-  .version("1.0.0");
+  .version("1.1.0");
 
 program
   .command("check")
@@ -20,9 +21,10 @@ program
   .argument("[env]", "path to .env file", ".env")
   .argument("[example]", "path to .env.example file", ".env.example")
   .option("--json", "output as JSON")
+  .option("--strict", "fail on extra keys and all empty values")
   .action((env, example, opts) => {
     try {
-      const result = runCheck(resolve(env), resolve(example), { json: opts.json });
+      const result = runCheck(resolve(env), resolve(example), { json: opts.json, strict: opts.strict });
       process.exit(result.clean ? 0 : 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -89,6 +91,32 @@ program
     try {
       const result = runValidate(resolve(env), resolve(example), { json: opts.json });
       process.exit(result.valid ? 0 : 1);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`Error: ${message}\n`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("fix")
+  .description("Sync .env with .env.example — add missing keys, optionally prune extras")
+  .argument("[env]", "path to .env file", ".env")
+  .argument("[example]", "path to .env.example file", ".env.example")
+  .option("--prune", "remove keys not in .env.example")
+  .option("--sort", "sort keys alphabetically")
+  .option("--dry-run", "show changes without writing")
+  .option("-o, --output <path>", "output file path")
+  .option("--json", "output as JSON")
+  .action((env, example, opts) => {
+    try {
+      runFix(resolve(env), resolve(example), {
+        json: opts.json,
+        prune: opts.prune,
+        sort: opts.sort,
+        dryRun: opts.dryRun,
+        output: opts.output,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       process.stderr.write(`Error: ${message}\n`);

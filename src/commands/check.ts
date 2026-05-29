@@ -3,7 +3,10 @@ import { resolve } from "path";
 import { parseEnvFile, toEnvMap, extractAnnotations, validateFilePath } from "../lib/parser.js";
 import { formatCheckResult, outputJson, outputText, type CheckResult, type OutputOptions } from "../lib/output.js";
 
-export interface CheckOptions extends OutputOptions {}
+export interface CheckOptions extends OutputOptions {
+  /** Strict mode: fail on extra keys and all empty values */
+  strict?: boolean;
+}
 
 export function runCheck(envPath: string, examplePath: string, options: CheckOptions = { json: false }): CheckResult {
   const envParsed = parseEnvFile(envPath);
@@ -27,14 +30,17 @@ export function runCheck(envPath: string, examplePath: string, options: CheckOpt
   for (const key of annotations.keys()) {
     if (!envMap.has(key)) {
       missing.push(key);
-    } else if (envMap.get(key) === "" && annotations.get(key)?.required) {
+    } else if (envMap.get(key) === "" && (annotations.get(key)?.required || options.strict)) {
       empty.push(key);
     }
   }
 
   for (const key of envMap.keys()) {
     if (!annotations.has(key)) {
-      extra.push(key);
+      if (options.strict) {
+        // In strict mode, extra keys are treated as errors
+        extra.push(key);
+      }
     }
   }
 
