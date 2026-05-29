@@ -20,7 +20,12 @@ export class ConflictResolver {
     console.log(`  Opening in ${editor}...`);
 
     return new Promise((resolvePromise, reject) => {
-      const editorProcess = spawn(editor, [fullPath], {
+      // Split editor command to handle args like "code --wait" or "subl -w --new-window"
+      const parts = editor.split(/\s+/);
+      const command = parts[0];
+      const args = [...parts.slice(1), fullPath];
+
+      const editorProcess = spawn(command, args, {
         stdio: 'inherit',
       });
 

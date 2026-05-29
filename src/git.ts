@@ -140,7 +140,13 @@ export class GitOperations {
   async isMergeInProgress(): Promise<boolean> {
     try {
       const status = await this.git.status();
-      return status.files.some((f: StatusFile) => f.index === 'U');
+      // Any index code containing 'U' or 'A' in both indicates a conflict
+      // U = unmerged, A = added by both, D = deleted by both
+      const conflictCodes = ['U', 'A', 'D'];
+      return status.files.some((f: StatusFile) => {
+        const code = f.index;
+        return conflictCodes.some(c => code.includes(c)) || code === 'AA' || code === 'DD';
+      });
     } catch {
       return false;
     }
