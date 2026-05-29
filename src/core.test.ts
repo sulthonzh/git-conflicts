@@ -74,6 +74,17 @@ describe('GitOperations', () => {
     const cleanContent = 'some code\nmy code\nend';
     expect(gitOps.hasConflictMarkers(cleanContent)).toBe(false);
   });
+
+  it('should count conflict markers correctly', () => {
+    const singleConflict = 'some code\n<<<<<<< HEAD\nmy code\n=======\ntheir code\n>>>>>>> feature\nend';
+    expect(gitOps.countConflicts(singleConflict)).toBe(1);
+
+    const multipleConflicts = 'a\n<<<<<<< HEAD\nx\n=======\ny\n>>>>>>> f1\nb\n<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> f2';
+    expect(gitOps.countConflicts(multipleConflicts)).toBe(2);
+
+    const cleanContent = 'no conflicts here';
+    expect(gitOps.countConflicts(cleanContent)).toBe(0);
+  });
 });
 
 describe('ConflictResolver', () => {

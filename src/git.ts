@@ -1,5 +1,7 @@
 import simpleGit, { SimpleGit } from 'simple-git';
 import { resolve } from 'path';
+import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 
 interface StatusFile {
   index: string;
@@ -8,10 +10,11 @@ interface StatusFile {
 
 export class GitOperations {
   private git: SimpleGit;
+  private workingDir: string;
 
   constructor(cwd?: string) {
-    const workingDir = cwd ? resolve(cwd) : process.cwd();
-    this.git = simpleGit(workingDir);
+    this.workingDir = cwd ? resolve(cwd) : process.cwd();
+    this.git = simpleGit(this.workingDir);
   }
 
   /**
@@ -19,11 +22,8 @@ export class GitOperations {
    */
   async getConflictedFiles(): Promise<string[]> {
     try {
-      // Check if we are in a git repository
       await this.git.status();
 
-      // Get files with unmerged status (U)
-      // Using git diff --name-only --diff-filter=U as specified in requirements
       const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
       const files = diffOutput
         .split('\n')
@@ -51,14 +51,51 @@ export class GitOperations {
 
   /**
    * Get merge conflict info (branches involved)
+   * Attempts to read MERGE_HEAD and MERGE_MSG for better context
    */
-  async getMergeInfo(): Promise<{ current: string; merging?: string }> {
+  async getMergeInfo(): Promise<{ current: string; merging?: string; mergeMessage?: string }> {
     const current = await this.getCurrentBranch();
-    await this.git.status();
+    let merging: string | undefined;
+    let mergeMessage: string | undefined;
 
-    // simple-git doesn't directly expose the merging branch name in status easily
-    // We'll return current for now. In a real scenario, we might parse .git/MERGE_HEAD
-    return { current };
+    // Try to read .git/MERGE_MSG for merge context
+    try {
+      const gitDir = await this.git.revparse(['--git-dir']);
+      const mergeMsgPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_MSG');
+      if (existsSync(mergeMsgPath)) {
+        const msg = await readFile(mergeMsgPath, 'utf-8');
+        // Extract branch name from "Merge branch 'xyz'"
+        const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
+        if (match) {
+          merging = match[1];
+        }
+        mergeMessage = msg.split('\n')[0].trim();
+      }
+    } catch {
+      // MERGE_MSG might not exist during rebase or cherry-pick
+    }
+
+    // Try to read .git/MERGE_HEAD for the commit being merged
+    if (!merging) {
+      try {
+        const gitDir = await this.git.revparse(['--git-dir']);
+        const mergeHeadPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_HEAD');
+        if (existsSync(mergeHeadPath)) {
+          const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
+          // Get short ref name for the SHA
+          try {
+            const name = await this.git.raw(['name-rev', '--name-only', sha]);
+            merging = name.trim() || sha.substring(0, 7);
+          } catch {
+            merging = sha.substring(0, 7);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return { current, merging, mergeMessage };
   }
 
   /**
@@ -77,10 +114,24 @@ export class GitOperations {
   }
 
   /**
+   * Count conflict markers in content
+   */
+  countConflicts(content: string): number {
+    const matches = content.match(/<<<<<<<.+$/gm);
+    return matches ? matches.length : 0;
+  }
+  /**
    * Abort current merge
    */
   async abortMerge(): Promise<void> {
     await this.git.merge(['--abort']);
+  }
+
+  /**
+   * Stage a file (git add)
+   */
+  async stageFile(filePath: string): Promise<void> {
+    await this.git.add(filePath);
   }
 
   /**
@@ -93,5 +144,26 @@ export class GitOperations {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Get conflict status as structured data (for --json)
+   */
+  async getConflictStatus(): Promise<{
+    hasConflicts: boolean;
+    files: string[];
+    branch: string;
+    merging?: string;
+    mergeMessage?: string;
+  }> {
+    const files = await this.getConflictedFiles();
+    const info = await this.getMergeInfo();
+    return {
+      hasConflicts: files.length > 0,
+      files,
+      branch: info.current,
+      merging: info.merging,
+      mergeMessage: info.mergeMessage,
+    };
   }
 }

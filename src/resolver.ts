@@ -17,7 +17,7 @@ export class ConflictResolver {
     const editor = process.env.EDITOR || process.env.VISUAL || this.getDefaultEditor();
     const fullPath = resolve(filePath);
 
-    console.log(`💡 Opening ${filePath} in ${editor}...`);
+    console.log(`  Opening in ${editor}...`);
 
     return new Promise((resolvePromise, reject) => {
       const editorProcess = spawn(editor, [fullPath], {
@@ -47,7 +47,6 @@ export class ConflictResolver {
     if (platform === 'win32') {
       return 'notepad';
     } else {
-      // macOS/Linux/Unix
       return 'vim';
     }
   }
@@ -76,6 +75,18 @@ export class ConflictResolver {
   }
 
   /**
+   * Get the number of conflict markers in a file
+   */
+  async getConflictCount(filePath: string): Promise<number> {
+    try {
+      const content = await readFile(resolve(filePath), 'utf-8');
+      return this.gitOps.countConflicts(content);
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Resolve a single conflict file
    * Returns true if resolved, false if skipped or failed
    */
@@ -90,18 +101,18 @@ export class ConflictResolver {
       if (!validation.valid) {
         return {
           success: false,
-          message: `⚠️  ${filePath}: ${validation.reason}`,
+          message: `${filePath}: ${validation.reason}`,
         };
       }
 
       return {
         success: true,
-        message: `✅ Resolved ${filePath}`,
+        message: `Resolved ${filePath}`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `❌ Failed to resolve ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Failed to resolve ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

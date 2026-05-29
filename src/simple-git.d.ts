@@ -3,6 +3,9 @@ declare module 'simple-git' {
     status(): Promise<StatusResult>;
     diff(args: string[]): Promise<string>;
     merge(args: string[]): Promise<MergeResult>;
+    add(files: string | string[]): Promise<string>;
+    raw(args: string[]): Promise<string>;
+    revparse(args: string[]): Promise<string>;
   }
 
   interface StatusResult {

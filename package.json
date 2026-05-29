@@ -1,6 +1,6 @@
 {
   "name": "@sulthonzh/git-conflicts",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Interactive CLI to list and resolve merge conflicts one file at a time with progress tracking.",
   "main": "dist/index.js",
   "bin": {
@@ -49,5 +49,11 @@
     "dist",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./git": "./dist/git.js",
+    "./resolver": "./dist/resolver.js",
+    "./progress": "./dist/progress.js"
+  }
 }
