@@ -23,15 +23,14 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
   "devDependencies": {
     "@types/node": "^22.15.0",
-    "commander": "^13.1.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",
     "vitest": "^3.1.0"
-  },
-  "peerDependencies": {
-    "commander": "^13.1.0"
   },
   "keywords": [
     "env",

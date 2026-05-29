@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import { parseEnvFile, toEnvMap, extractAnnotations, validateFilePath } from "../lib/parser.js";
 import { formatCheckResult, outputJson, outputText, type CheckResult, type OutputOptions } from "../lib/output.js";

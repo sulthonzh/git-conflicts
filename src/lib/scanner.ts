@@ -34,17 +34,25 @@ export function scanForSecrets(parsed: ParsedEnv): ScanResult {
   const secrets: SecretMatch[] = [];
 
   for (const entry of parsed.entries) {
+    // Test against the raw line for pattern matching (some patterns like AWS key
+    // appear in the value portion) AND against just the value for key-agnostic patterns.
+    // Also test the raw line to catch key=value patterns (e.g. "api_key=...").
+    const testTargets = [entry.value, entry.raw];
+
     for (const pattern of SECRET_PATTERNS) {
-      if (pattern.pattern.test(entry.raw)) {
-        // Avoid duplicate matches for the same key
-        const alreadyFound = secrets.some((s) => s.key === entry.key && s.pattern.name === pattern.name);
-        if (!alreadyFound) {
+      // Avoid duplicate matches for the same key
+      const alreadyFound = secrets.some((s) => s.key === entry.key && s.pattern.name === pattern.name);
+      if (alreadyFound) continue;
+
+      for (const target of testTargets) {
+        if (pattern.pattern.test(target)) {
           secrets.push({
             key: entry.key,
             line: entry.line,
             pattern,
             redacted: redact(entry.value),
           });
+          break; // found for this pattern, move to next
         }
       }
     }
