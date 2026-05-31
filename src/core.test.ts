@@ -84,6 +84,10 @@ describe('GitOperations', () => {
 
     const cleanContent = 'no conflicts here';
     expect(gitOps.countConflicts(cleanContent)).toBe(0);
+
+    // Bare marker with no branch name (edge case)
+    const bareMarker = 'code\n<<<<<<<\nmine\n=======\nyours\n>>>>>>> branch';
+    expect(gitOps.countConflicts(bareMarker)).toBe(1);
   });
 });
 

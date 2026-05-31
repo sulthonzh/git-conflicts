@@ -58,10 +58,36 @@ export class GitOperations {
     let merging: string | undefined;
     let mergeMessage: string | undefined;
 
+    // Check for rebase in progress
+    try {
+      const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+      const absGitDir = resolve(this.workingDir, gitDir);
+
+      if (existsSync(resolve(absGitDir, 'rebase-merge'))) {
+        // During rebase, read the head name for context
+        try {
+          const headName = await readFile(resolve(absGitDir, 'rebase-merge', 'head-name'), 'utf-8');
+          const branchMatch = headName.trim().match(/^refs\/heads\/(.+)$/);
+          merging = branchMatch ? branchMatch[1] : headName.trim();
+        } catch {
+          merging = 'rebase';
+        }
+        try {
+          mergeMessage = (await readFile(resolve(absGitDir, 'rebase-merge', 'message'), 'utf-8')).split('\n')[0].trim();
+        } catch {
+          // no message file
+        }
+        return { current, merging, mergeMessage };
+      }
+    } catch {
+      // not in a git repo or other error
+    }
+
     // Try to read .git/MERGE_MSG for merge context
     try {
-      const gitDir = await this.git.revparse(['--git-dir']);
-      const mergeMsgPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_MSG');
+      const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+      const absGitDir = resolve(this.workingDir, gitDir);
+      const mergeMsgPath = resolve(absGitDir, 'MERGE_MSG');
       if (existsSync(mergeMsgPath)) {
         const msg = await readFile(mergeMsgPath, 'utf-8');
         // Extract branch name from "Merge branch 'xyz'"
@@ -78,8 +104,9 @@ export class GitOperations {
     // Try to read .git/MERGE_HEAD for the commit being merged
     if (!merging) {
       try {
-        const gitDir = await this.git.revparse(['--git-dir']);
-        const mergeHeadPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_HEAD');
+        const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+        const absGitDir = resolve(this.workingDir, gitDir);
+        const mergeHeadPath = resolve(absGitDir, 'MERGE_HEAD');
         if (existsSync(mergeHeadPath)) {
           const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
           // Get short ref name for the SHA
@@ -117,13 +144,32 @@ export class GitOperations {
    * Count conflict markers in content
    */
   countConflicts(content: string): number {
-    const matches = content.match(/<<<<<<<.+$/gm);
+    const matches = content.match(/<<<<<<<.*$/gm);
     return matches ? matches.length : 0;
   }
   /**
-   * Abort current merge
+   * Abort current merge/rebase/cherry-pick/revert
    */
   async abortMerge(): Promise<void> {
+    const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+    const absGitDir = resolve(this.workingDir, gitDir);
+
+    // Check which operation is in progress
+    if (existsSync(resolve(absGitDir, 'rebase-merge')) || existsSync(resolve(absGitDir, 'rebase-apply'))) {
+      await this.git.raw(['rebase', '--abort']);
+      return;
+    }
+
+    if (existsSync(resolve(absGitDir, 'CHERRY_PICK_HEAD'))) {
+      await this.git.raw(['cherry-pick', '--abort']);
+      return;
+    }
+
+    if (existsSync(resolve(absGitDir, 'REVERT_HEAD'))) {
+      await this.git.raw(['revert', '--abort']);
+      return;
+    }
+
     await this.git.merge(['--abort']);
   }
 
