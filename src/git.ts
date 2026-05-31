@@ -22,8 +22,6 @@ export class GitOperations {
    */
   async getConflictedFiles(): Promise<string[]> {
     try {
-      await this.git.status();
-
       const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
       const files = diffOutput
         .split('\n')
@@ -156,14 +154,57 @@ export class GitOperations {
     merging?: string;
     mergeMessage?: string;
   }> {
-    const files = await this.getConflictedFiles();
-    const info = await this.getMergeInfo();
+    // Reuse a single status call instead of 3 separate git invocations
+    const status = await this.git.status();
+    const current = status.current || 'HEAD';
+
+    const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
+    const files = diffOutput
+      .split('\n')
+      .map((f: string) => f.trim())
+      .filter((f: string) => f.length > 0);
+
+    // Get merge info (branches) using shared context
+    let merging: string | undefined;
+    let mergeMessage: string | undefined;
+    const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+    const absGitDir = resolve(this.workingDir, gitDir);
+
+    // Try MERGE_MSG for merge context
+    try {
+      const mergeMsgPath = resolve(absGitDir, 'MERGE_MSG');
+      if (existsSync(mergeMsgPath)) {
+        const msg = await readFile(mergeMsgPath, 'utf-8');
+        const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
+        if (match) {
+          merging = match[1];
+        }
+        mergeMessage = msg.split('\n')[0].trim();
+      }
+    } catch { /* ignore */ }
+
+    // Try MERGE_HEAD if no merging branch found
+    if (!merging) {
+      try {
+        const mergeHeadPath = resolve(absGitDir, 'MERGE_HEAD');
+        if (existsSync(mergeHeadPath)) {
+          const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
+          try {
+            const name = await this.git.raw(['name-rev', '--name-only', sha]);
+            merging = name.trim() || sha.substring(0, 7);
+          } catch {
+            merging = sha.substring(0, 7);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     return {
       hasConflicts: files.length > 0,
       files,
-      branch: info.current,
-      merging: info.merging,
-      mergeMessage: info.mergeMessage,
+      branch: current,
+      merging,
+      mergeMessage,
     };
   }
 }
