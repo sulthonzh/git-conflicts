@@ -75,7 +75,8 @@ async function showStatus(gitOps: GitOperations, jsonMode: boolean): Promise<voi
     console.log(chalk.red(`🔥 Found ${status.files.length} merge conflict(s)`));
     console.log(chalk.gray(`📁 ${process.cwd()} (${status.branch})`));
     if (status.merging) {
-      console.log(chalk.gray(`🔀 Merging: ${status.merging}`));
+      const op = status.operation === 'rebase' ? 'Rebasing' : status.operation === 'cherry-pick' ? 'Cherry-picking' : status.operation === 'revert' ? 'Reverting' : 'Merging';
+      console.log(chalk.gray(`🔀 ${op}: ${status.merging}`));
     }
     console.log('');
 
@@ -126,7 +127,8 @@ async function resolveConflicts(
     console.log(chalk.red(`🔥 Found ${status.files.length} merge conflict(s)`));
     console.log(chalk.gray(`📁 ${process.cwd()} (${status.branch})`));
     if (status.merging) {
-      console.log(chalk.gray(`🔀 Merging: ${status.merging}`));
+      const op = status.operation === 'rebase' ? 'Rebasing' : status.operation === 'cherry-pick' ? 'Cherry-picking' : status.operation === 'revert' ? 'Reverting' : 'Merging';
+      console.log(chalk.gray(`🔀 ${op}: ${status.merging}`));
     }
     console.log('');
 

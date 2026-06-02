@@ -6,8 +6,8 @@ import { GitOperations } from './git';
 export class ConflictResolver {
   private gitOps: GitOperations;
 
-  constructor() {
-    this.gitOps = new GitOperations();
+  constructor(cwd?: string) {
+    this.gitOps = new GitOperations(cwd);
   }
 
   /**
@@ -17,10 +17,15 @@ export class ConflictResolver {
     const editor = process.env.EDITOR || process.env.VISUAL || this.getDefaultEditor();
     const fullPath = resolve(filePath);
 
+    // Split editor command to handle flags like "code --wait" or "vim -f"
+    const parts = editor.split(/\s+/);
+    const command = parts[0];
+    const baseArgs = parts.slice(1);
+
     console.log(`  Opening in ${editor}...`);
 
     return new Promise((resolvePromise, reject) => {
-      const editorProcess = spawn(editor, [fullPath], {
+      const editorProcess = spawn(command, [...baseArgs, fullPath], {
         stdio: 'inherit',
       });
 

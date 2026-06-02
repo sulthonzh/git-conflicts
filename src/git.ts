@@ -53,18 +53,56 @@ export class GitOperations {
    * Get merge conflict info (branches involved)
    * Attempts to read MERGE_HEAD and MERGE_MSG for better context
    */
-  async getMergeInfo(): Promise<{ current: string; merging?: string; mergeMessage?: string }> {
+  async getMergeInfo(): Promise<{ current: string; merging?: string; mergeMessage?: string; operation?: string }> {
     const current = await this.getCurrentBranch();
     let merging: string | undefined;
     let mergeMessage: string | undefined;
+    let operation: string | undefined;
 
-    // Try to read .git/MERGE_MSG for merge context
+    const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+
+    // Detect rebase state
+    const rebaseMergeDir = resolve(this.workingDir, gitDir, 'rebase-merge');
+    const rebaseApplyDir = resolve(this.workingDir, gitDir, 'rebase-apply');
+    if (existsSync(rebaseMergeDir)) {
+      operation = 'rebase';
+      try {
+        const headName = await readFile(resolve(rebaseMergeDir, 'head-name'), 'utf-8');
+        const match = headName.trim().match(/^refs\/heads\/(.+)$/);
+        if (match) {
+          // head-name contains the branch being rebased onto
+          merging = match[1];
+        }
+      } catch { /* ignore */ }
+      try {
+        const msg = await readFile(resolve(rebaseMergeDir, 'message'), 'utf-8');
+        mergeMessage = msg.split('\n')[0].trim();
+      } catch { /* ignore */ }
+    } else if (existsSync(rebaseApplyDir)) {
+      operation = 'rebase';
+    }
+
+    // Detect cherry-pick/revert state
+    if (!operation) {
+      const cherryPickHead = resolve(this.workingDir, gitDir, 'CHERRY_PICK_HEAD');
+      const revertHead = resolve(this.workingDir, gitDir, 'REVERT_HEAD');
+      if (existsSync(cherryPickHead)) {
+        operation = 'cherry-pick';
+      } else if (existsSync(revertHead)) {
+        operation = 'revert';
+      }
+    }
+
+    // Default to merge
+    if (!operation) {
+      operation = 'merge';
+    }
+
+    // Try to read MERGE_MSG for merge context
     try {
-      const gitDir = await this.git.revparse(['--git-dir']);
-      const mergeMsgPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_MSG');
+      const mergeMsgPath = resolve(this.workingDir, gitDir, 'MERGE_MSG');
       if (existsSync(mergeMsgPath)) {
         const msg = await readFile(mergeMsgPath, 'utf-8');
-        // Extract branch name from "Merge branch 'xyz'"
         const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
         if (match) {
           merging = match[1];
@@ -75,14 +113,12 @@ export class GitOperations {
       // MERGE_MSG might not exist during rebase or cherry-pick
     }
 
-    // Try to read .git/MERGE_HEAD for the commit being merged
+    // Try to read MERGE_HEAD for the commit being merged
     if (!merging) {
       try {
-        const gitDir = await this.git.revparse(['--git-dir']);
-        const mergeHeadPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_HEAD');
+        const mergeHeadPath = resolve(this.workingDir, gitDir, 'MERGE_HEAD');
         if (existsSync(mergeHeadPath)) {
           const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
-          // Get short ref name for the SHA
           try {
             const name = await this.git.raw(['name-rev', '--name-only', sha]);
             merging = name.trim() || sha.substring(0, 7);
@@ -95,7 +131,7 @@ export class GitOperations {
       }
     }
 
-    return { current, merging, mergeMessage };
+    return { current, merging, mergeMessage, operation };
   }
 
   /**
@@ -117,14 +153,26 @@ export class GitOperations {
    * Count conflict markers in content
    */
   countConflicts(content: string): number {
-    const matches = content.match(/<<<<<<<.+$/gm);
+    const matches = content.match(/<<<<<<<.*$/gm);
     return matches ? matches.length : 0;
   }
   /**
    * Abort current merge
    */
   async abortMerge(): Promise<void> {
-    await this.git.merge(['--abort']);
+    const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+
+    // Detect what operation is in progress
+    if (existsSync(resolve(this.workingDir, gitDir, 'rebase-merge')) ||
+        existsSync(resolve(this.workingDir, gitDir, 'rebase-apply'))) {
+      await this.git.raw(['rebase', '--abort']);
+    } else if (existsSync(resolve(this.workingDir, gitDir, 'CHERRY_PICK_HEAD'))) {
+      await this.git.raw(['cherry-pick', '--abort']);
+    } else if (existsSync(resolve(this.workingDir, gitDir, 'REVERT_HEAD'))) {
+      await this.git.raw(['revert', '--abort']);
+    } else {
+      await this.git.merge(['--abort']);
+    }
   }
 
   /**
@@ -139,8 +187,20 @@ export class GitOperations {
    */
   async isMergeInProgress(): Promise<boolean> {
     try {
-      const status = await this.git.status();
-      return status.files.some((f: StatusFile) => f.index === 'U');
+      // Check for conflict files via diff
+      const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
+      const files = diffOutput.split('\n').filter((f: string) => f.trim().length > 0);
+      if (files.length > 0) return true;
+
+      // Also check for ongoing operations that haven't produced conflicts yet
+      const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+      return (
+        existsSync(resolve(this.workingDir, gitDir, 'MERGE_HEAD')) ||
+        existsSync(resolve(this.workingDir, gitDir, 'rebase-merge')) ||
+        existsSync(resolve(this.workingDir, gitDir, 'rebase-apply')) ||
+        existsSync(resolve(this.workingDir, gitDir, 'CHERRY_PICK_HEAD')) ||
+        existsSync(resolve(this.workingDir, gitDir, 'REVERT_HEAD'))
+      );
     } catch {
       return false;
     }
@@ -155,6 +215,7 @@ export class GitOperations {
     branch: string;
     merging?: string;
     mergeMessage?: string;
+    operation?: string;
   }> {
     const files = await this.getConflictedFiles();
     const info = await this.getMergeInfo();
@@ -164,6 +225,7 @@ export class GitOperations {
       branch: info.current,
       merging: info.merging,
       mergeMessage: info.mergeMessage,
+      operation: info.operation,
     };
   }
 }
