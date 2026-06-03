@@ -5,8 +5,10 @@ import { GitOperations } from './git';
 
 export class ConflictResolver {
   private gitOps: GitOperations;
+  private workingDir: string;
 
   constructor(cwd?: string) {
+    this.workingDir = cwd ? resolve(cwd) : process.cwd();
     this.gitOps = new GitOperations(cwd);
   }
 
@@ -15,7 +17,7 @@ export class ConflictResolver {
    */
   async openInEditor(filePath: string): Promise<void> {
     const editor = process.env.EDITOR || process.env.VISUAL || this.getDefaultEditor();
-    const fullPath = resolve(filePath);
+    const fullPath = resolve(this.workingDir, filePath);
 
     // Split editor command to handle flags like "code --wait" or "vim -f"
     const parts = editor.split(/\s+/);
@@ -61,7 +63,7 @@ export class ConflictResolver {
    */
   async validateResolution(filePath: string): Promise<{ valid: boolean; reason?: string }> {
     try {
-      const content = await readFile(resolve(filePath), 'utf-8');
+      const content = await readFile(resolve(this.workingDir, filePath), 'utf-8');
 
       if (this.gitOps.hasConflictMarkers(content)) {
         return {
@@ -84,7 +86,7 @@ export class ConflictResolver {
    */
   async getConflictCount(filePath: string): Promise<number> {
     try {
-      const content = await readFile(resolve(filePath), 'utf-8');
+      const content = await readFile(resolve(this.workingDir, filePath), 'utf-8');
       return this.gitOps.countConflicts(content);
     } catch {
       return 0;

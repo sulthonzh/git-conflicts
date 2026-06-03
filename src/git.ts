@@ -3,11 +3,6 @@ import { resolve } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
-interface StatusFile {
-  index: string;
-  path: string;
-}
-
 export class GitOperations {
   private git: SimpleGit;
   private workingDir: string;
@@ -22,8 +17,6 @@ export class GitOperations {
    */
   async getConflictedFiles(): Promise<string[]> {
     try {
-      await this.git.status();
-
       const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
       const files = diffOutput
         .split('\n')
@@ -217,8 +210,11 @@ export class GitOperations {
     mergeMessage?: string;
     operation?: string;
   }> {
-    const files = await this.getConflictedFiles();
-    const info = await this.getMergeInfo();
+    // Get conflicts and branch in parallel to avoid sequential git calls
+    const [files, info] = await Promise.all([
+      this.getConflictedFiles(),
+      this.getMergeInfo(),
+    ]);
     return {
       hasConflicts: files.length > 0,
       files,
