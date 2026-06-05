@@ -117,14 +117,28 @@ export class GitOperations {
    * Count conflict markers in content
    */
   countConflicts(content: string): number {
-    const matches = content.match(/<<<<<<<.+$/gm);
+    const matches = content.match(/<<<<<<<.*$/gm);
     return matches ? matches.length : 0;
   }
   /**
-   * Abort current merge
+   * Abort current merge/rebase/cherry-pick/revert
    */
   async abortMerge(): Promise<void> {
-    await this.git.merge(['--abort']);
+    const gitDir = (await this.git.revparse(['--git-dir'])).trim();
+
+    // Detect what operation is in progress and abort correctly
+    if (
+      existsSync(resolve(this.workingDir, gitDir, 'rebase-merge')) ||
+      existsSync(resolve(this.workingDir, gitDir, 'rebase-apply'))
+    ) {
+      await this.git.raw(['rebase', '--abort']);
+    } else if (existsSync(resolve(this.workingDir, gitDir, 'CHERRY_PICK_HEAD'))) {
+      await this.git.raw(['cherry-pick', '--abort']);
+    } else if (existsSync(resolve(this.workingDir, gitDir, 'REVERT_HEAD'))) {
+      await this.git.raw(['revert', '--abort']);
+    } else {
+      await this.git.merge(['--abort']);
+    }
   }
 
   /**

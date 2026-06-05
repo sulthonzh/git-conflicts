@@ -2,16 +2,20 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { createRequire } from 'module';
 import { GitOperations } from './git';
 import { ProgressTracker } from './progress';
 import { ConflictResolver } from './resolver';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 const program = new Command();
 
 program
   .name('git-conflicts')
   .description('Interactive CLI to list and resolve merge conflicts')
-  .version('1.1.0');
+  .version(pkg.version);
 
 program
   .command('resolve', { isDefault: true })
