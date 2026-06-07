@@ -75,6 +75,27 @@ describe('GitOperations', () => {
     expect(gitOps.hasConflictMarkers(cleanContent)).toBe(false);
   });
 
+  it('should detect orphan ======= as conflict marker', () => {
+    // Partially edited file: <<<<<<< removed but ======= remains
+    const orphaned = 'some code\n=======\ntheir code\n>>>>>>> feature\nend';
+    expect(gitOps.hasConflictMarkers(orphaned)).toBe(true);
+  });
+
+  it('should detect orphan >>>>>>> as conflict marker', () => {
+    const orphaned = 'some code\n>>>>>>> feature\nend';
+    expect(gitOps.hasConflictMarkers(orphaned)).toBe(true);
+  });
+
+  it('should detect diff3 ||||||| markers', () => {
+    const diff3 = '<<<<<<< HEAD\nmy code\n||||||| merged common\nbase\n=======\ntheir code\n>>>>>>> feature';
+    expect(gitOps.hasConflictMarkers(diff3)).toBe(true);
+  });
+
+  it('should not false-positive on strings containing marker text', () => {
+    const notAMarker = 'console.log("<<<<<<< this is just a string")';
+    expect(gitOps.hasConflictMarkers(notAMarker)).toBe(false);
+  });
+
   it('should count conflict markers correctly', () => {
     const singleConflict = 'some code\n<<<<<<< HEAD\nmy code\n=======\ntheir code\n>>>>>>> feature\nend';
     expect(gitOps.countConflicts(singleConflict)).toBe(1);

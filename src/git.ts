@@ -61,7 +61,9 @@ export class GitOperations {
     // Try to read .git/MERGE_MSG for merge context
     try {
       const gitDir = await this.git.revparse(['--git-dir']);
-      const mergeMsgPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_MSG');
+      // gitDir can be relative (e.g. ".git") — resolve relative to workingDir
+      const absoluteGitDir = resolve(this.workingDir, gitDir.trim());
+      const mergeMsgPath = resolve(absoluteGitDir, 'MERGE_MSG');
       if (existsSync(mergeMsgPath)) {
         const msg = await readFile(mergeMsgPath, 'utf-8');
         // Extract branch name from "Merge branch 'xyz'"
@@ -79,7 +81,8 @@ export class GitOperations {
     if (!merging) {
       try {
         const gitDir = await this.git.revparse(['--git-dir']);
-        const mergeHeadPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_HEAD');
+        const absoluteGitDir = resolve(this.workingDir, gitDir.trim());
+        const mergeHeadPath = resolve(absoluteGitDir, 'MERGE_HEAD');
         if (existsSync(mergeHeadPath)) {
           const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
           // Get short ref name for the SHA
@@ -107,18 +110,29 @@ export class GitOperations {
   }
 
   /**
-   * Check if file content still has conflict markers
+   * Check if file content still has conflict markers.
+   * Checks for all marker types including diff3 style (|||||||).
+   * A partially-edited file might have orphan ======= or >>>>>>> markers
+   * without a matching <<<<<<<, so we check all of them.
    */
   hasConflictMarkers(content: string): boolean {
-    return content.includes('<<<<<<<');
+    // Check line-by-line at line start to avoid false positives from strings
+    const lines = content.split('\n');
+    return lines.some(line =>
+      /^<{7}\s/.test(line) ||
+      /^={7}$/.test(line) ||
+      /^>{7}\s/.test(line) ||
+      /^\|{7}\s/.test(line)
+    );
   }
 
   /**
-   * Count conflict markers in content
+   * Count conflict markers in content.
+   * Counts <<<<<<< markers (each one starts a conflict block).
    */
   countConflicts(content: string): number {
-    const matches = content.match(/<<<<<<<.+$/gm);
-    return matches ? matches.length : 0;
+    const lines = content.split('\n');
+    return lines.filter(line => /^<{7}\s/.test(line)).length;
   }
   /**
    * Abort current merge

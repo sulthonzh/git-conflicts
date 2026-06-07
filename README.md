@@ -16,7 +16,9 @@ When `git merge` fails, developers face pain points:
 - ✅ Open each file in your preferred `$EDITOR`
 - ✅ Validate conflict markers are resolved before continuing
 - ✅ Cross-platform (macOS, Linux, Windows)
-- ✅ Continue/abort functionality
+- ✅ Abort merge functionality
+- ✅ Auto-stage resolved files (`--stage`)
+- ✅ JSON output for scripting/CI (`--json`)
 - ✅ Zero configuration required
 
 ## Installation
@@ -79,6 +81,22 @@ Run "git commit" to complete the merge.
 git-conflicts --abort
 ```
 
+### Auto-stage resolved files
+
+```bash
+git-conflicts --stage
+```
+
+With `--stage`, each file is automatically `git add`ed after conflict markers are resolved.
+
+### JSON output (for scripting/CI)
+
+```bash
+git-conflicts --status --json
+```
+
+Returns structured JSON with conflict info, useful for CI pipelines or scripting.
+
 ## Configuration
 
 `git-conflicts` respects your environment variables:
@@ -94,7 +112,7 @@ If neither is set, it defaults to:
 
 1. Detects merge conflicts using `git diff --name-only --diff-filter=U`
 2. Opens each conflicted file in your configured editor
-3. Validates that conflict markers (`<<<<<<<`) are removed
+3. Validates that all conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`, `|||||||`) are removed
 4. Tracks progress and shows summary
 5. Prompts you to run `git commit` when done
 

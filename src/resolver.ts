@@ -17,10 +17,16 @@ export class ConflictResolver {
     const editor = process.env.EDITOR || process.env.VISUAL || this.getDefaultEditor();
     const fullPath = resolve(filePath);
 
+    // Editor string may contain flags, e.g. "code --wait" or "subl -w".
+    // Split on spaces but preserve quoted segments so paths with spaces work.
+    const editorParts = this.parseEditorCommand(editor);
+    const command = editorParts[0];
+    const args = [...editorParts.slice(1), fullPath];
+
     console.log(`  Opening in ${editor}...`);
 
     return new Promise((resolvePromise, reject) => {
-      const editorProcess = spawn(editor, [fullPath], {
+      const editorProcess = spawn(command, args, {
         stdio: 'inherit',
       });
 
@@ -36,6 +42,44 @@ export class ConflictResolver {
         reject(new Error(`Failed to open editor: ${err.message}`));
       });
     });
+  }
+
+  /**
+   * Parse editor command string into command + args.
+   * Handles editors with flags like "code --wait" or "subl -w".
+   * Respects quoted paths with spaces.
+   */
+  private parseEditorCommand(editor: string): string[] {
+    const parts: string[] = [];
+    let current = '';
+    let inQuote = false;
+    let quoteChar = '';
+
+    for (let i = 0; i < editor.length; i++) {
+      const ch = editor[i];
+      if (inQuote) {
+        if (ch === quoteChar) {
+          inQuote = false;
+        } else {
+          current += ch;
+        }
+      } else if (ch === '"' || ch === "'") {
+        inQuote = true;
+        quoteChar = ch;
+      } else if (ch === ' ' || ch === '\t') {
+        if (current.length > 0) {
+          parts.push(current);
+          current = '';
+        }
+      } else {
+        current += ch;
+      }
+    }
+    if (current.length > 0) {
+      parts.push(current);
+    }
+
+    return parts;
   }
 
   /**
