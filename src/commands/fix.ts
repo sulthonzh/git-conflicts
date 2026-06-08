@@ -74,12 +74,13 @@ export function runFix(
   const allLineItems: Array<{
     line: number;
     type: "comment" | "entry";
+    raw?: string;
     text?: string;
     key?: string;
   }> = [];
 
   for (const comment of exampleParsed.comments) {
-    allLineItems.push({ line: comment.line, type: "comment", text: comment.text });
+    allLineItems.push({ line: comment.line, type: "comment", raw: comment.raw, text: comment.text });
   }
   for (const entry of exampleParsed.entries) {
     allLineItems.push({ line: entry.line, type: "entry", key: entry.key });
@@ -88,14 +89,32 @@ export function runFix(
 
   for (const item of allLineItems) {
     if (item.type === "comment") {
-      fixedLines.push(`# ${item.text}`);
+      // Preserve original comment formatting (## heading, #  indented, etc.)
+      fixedLines.push(item.raw ?? `# ${item.text}`);
     } else if (item.type === "entry" && item.key) {
       const key = item.key;
       processedKeys.add(key);
 
       if (envMap.has(key)) {
-        // Keep existing value
-        fixedLines.push(`${key}=${envMap.get(key)}`);
+        // Keep existing value, preserving inline comment from the original line
+        const original = envParsed.entries.find((e) => e.key === key);
+        const originalRaw = original?.raw;
+        // Extract inline comment from original .env line (the part after the value, if any)
+        let inlineComment = "";
+        if (originalRaw) {
+          const eqIdx = originalRaw.indexOf("=");
+          if (eqIdx !== -1) {
+            const afterEq = originalRaw.slice(eqIdx + 1).trimStart();
+            // For unquoted values, find the inline comment
+            if (!afterEq.startsWith('"') && !afterEq.startsWith("'")) {
+              const commentMatch = afterEq.match(/\s+#(.*)$/);
+              if (commentMatch) {
+                inlineComment = ` #${commentMatch[1]}`;
+              }
+            }
+          }
+        }
+        fixedLines.push(`${key}=${envMap.get(key)}${inlineComment}`);
       } else {
         // Add missing key with placeholder
         added.push(key);
@@ -147,7 +166,9 @@ export function runFix(
   const finalLines = options.sort ? [...commentLines, ...entryLines] : fixedLines;
   const output = finalLines.join("\n") + "\n";
 
-  const outputPath = options.output || envPath;
+  const rawOutputPath = options.output || envPath;
+  const outputPath = options.output ? validateFilePath(options.output) : rawOutputPath;
+  const resolvedOutputPath = resolve(outputPath);
 
   // Validate output path
   if (outputPath !== envPath) {
@@ -168,25 +189,24 @@ export function runFix(
       writeFileSync(backupPath, envParsed.raw, "utf-8");
       
       // Write the fixed content
-      writeFileSync(outputPath, output, "utf-8");
+      writeFileSync(resolvedOutputPath, output, "utf-8");
       
       // Clean up backup if successful
       try {
         unlinkSync(backupPath);
       } catch (cleanupErr) {
-        // If cleanup fails, log it but don't fail the operation
         const error = cleanupErr as Error;
         process.stderr.write(`Warning: Failed to clean up backup file ${backupPath}: ${error.message}\n`);
       }
     } catch (err: unknown) {
       const error = err as NodeJS.ErrnoException;
       if (error.code === "EACCES") {
-        throw new Error(`Permission denied writing to ${outputPath}`);
+        throw new Error(`Permission denied writing to ${resolvedOutputPath}`);
       }
       if (error.code === "ENOSPC") {
-        throw new Error(`No space left on device when writing to ${outputPath}`);
+        throw new Error(`No space left on device when writing to ${resolvedOutputPath}`);
       }
-      throw new Error(`Failed to write fixed file ${outputPath}: ${error.message}`);
+      throw new Error(`Failed to write fixed file ${resolvedOutputPath}: ${error.message}`);
     }
   }
 
@@ -194,7 +214,7 @@ export function runFix(
     added,
     removed,
     sorted,
-    outputPath: options.dryRun ? "(dry run, not written)" : outputPath,
+    outputPath: options.dryRun ? "(dry run, not written)" : resolvedOutputPath,
   };
 
   if (options.json) {

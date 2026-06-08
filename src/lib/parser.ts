@@ -215,17 +215,22 @@ export function extractAnnotations(
   const annotations = new Map<string, { required: boolean; type: string | null; defaultValue: string }>();
 
   for (const entry of parsed.entries) {
-    if (!entry.key || entry.key.length === 0) continue;
-    
-    // Look at the parsed value for inline annotations, avoiding false positives from values containing #
-    let annotationPart = entry.value;
-    
-    // Also check the raw line after the value portion
-    if (entry.raw.includes("#")) {
-      const valueEnd = entry.raw.indexOf("=") + 1;
-      const commentStart = entry.raw.indexOf("#", valueEnd);
-      if (commentStart !== -1) {
-        annotationPart = entry.raw.slice(commentStart);
+    // Look at the raw line for inline annotations like: KEY=value # @required @type url
+    // But skip annotations inside quoted values — only look at content after the value portion.
+    const rawAfterKey = entry.raw.slice(entry.raw.indexOf("=") + 1);
+    let annotationPart = rawAfterKey;
+
+    // If the value is quoted, strip the quoted portion before looking for annotations
+    const trimmedAfterKey = rawAfterKey.trimStart();
+    if (trimmedAfterKey.startsWith('"')) {
+      const closingQuote = rawAfterKey.indexOf('"', 1);
+      if (closingQuote !== -1) {
+        annotationPart = rawAfterKey.slice(closingQuote + 1);
+      }
+    } else if (trimmedAfterKey.startsWith("'")) {
+      const closingQuote = rawAfterKey.indexOf("'", 1);
+      if (closingQuote !== -1) {
+        annotationPart = rawAfterKey.slice(closingQuote + 1);
       }
     }
 

@@ -1,6 +1,6 @@
 # envguard 🔒
 
-[![npm version](https://img.shields.io/npm/v/envguard.svg)](https://www.npmjs.com/package/envguard) [![license](https://img.shields.io/github/license/sulthonzh/envguard)](https://github.com/sulthonzh/envguard/blob/main/LICENSE) [![tests](https://img.shields.io/badge/tests-62%20passing-brightgreen)](https://github.com/sulthonzh/envguard)
+[![npm version](https://img.shields.io/npm/v/envguard.svg)](https://www.npmjs.com/package/envguard) [![license](https://img.shields.io/github/license/sulthonzh/envguard)](https://github.com/sulthonzh/envguard/blob/main/LICENSE) [![tests](https://img.shields.io/badge/tests-75%20passing-brightgreen)](https://github.com/sulthonzh/envguard)
 
 Validate `.env` files, detect secrets, keep env configs in sync.
 
@@ -74,6 +74,23 @@ envguard secrets .env
 
 Exit code 1 if secrets found, 0 if clean.
 
+### `envguard lint [env-file]`
+
+Lint your `.env` for structural quality issues. Catches problems that cause silent bugs:
+
+- **Duplicate keys** — last value wins silently
+- **Invalid key names** — keys must match `[A-Za-z_][A-Za-z0-9_]*`
+- **Spaces around `=`** — `KEY = val` works in some shells but not all
+- **Trailing whitespace** — invisible bugs in values
+- **Unquoted values with spaces** — `KEY=hello world` drops everything after the space
+- **Very long lines** — usually means a secret is inline instead of referenced
+
+```bash
+envguard lint .env              # errors only → exit 1 on errors
+envguard lint .env --strict     # errors + warnings → exit 1 on any issue
+envguard lint .env --json       # JSON output
+```
+
 ### `envguard init [env-file]`
 
 Generate `.env.example` from an existing `.env` file. Strips all values, keeps keys and comments.
@@ -130,7 +147,7 @@ Annotate your `.env.example` to enable type validation:
 git clone https://github.com/sulthonzh/envguard.git
 cd envguard
 npm install
-npm test          # 62 tests
+npm test          # 75 tests
 npm run build     # dual CJS/ESM
 ```
 

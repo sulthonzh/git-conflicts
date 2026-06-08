@@ -6,6 +6,7 @@ import { runSecrets } from "./commands/secrets.js";
 import { runInit } from "./commands/init.js";
 import { runValidate } from "./commands/validate.js";
 import { runFix } from "./commands/fix.js";
+import { runLint } from "./commands/lint.js";
 
 const program = new Command();
 
@@ -116,6 +117,23 @@ program
         dryRun: opts.dryRun,
         output: opts.output,
       });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`Error: ${message}\n`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("lint")
+  .description("Lint .env for quality issues (duplicates, invalid keys, quoting, whitespace)")
+  .argument("[env]", "path to .env file", ".env")
+  .option("--json", "output as JSON")
+  .option("--strict", "fail on warnings too")
+  .action((env, opts) => {
+    try {
+      const result = runLint(resolve(env), { json: opts.json, strict: opts.strict });
+      process.exit(result.clean ? 0 : 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       process.stderr.write(`Error: ${message}\n`);

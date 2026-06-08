@@ -172,6 +172,31 @@ export function formatSecretsResult(
   return lines.join("\n");
 }
 
+/** Format lint results for console output. */
+export function formatLintResult(
+  issues: Array<{ key: string; line: number; severity: string; rule: string; message: string }>,
+  errors: number,
+  warnings: number,
+  clean: boolean
+): string {
+  const lines: string[] = [];
+
+  if (clean && issues.length === 0) {
+    lines.push("✓ No lint issues found");
+    return lines.join("\n");
+  }
+
+  for (const issue of issues) {
+    const icon = issue.severity === "error" ? "✗" : "!";
+    lines.push(`  ${icon} [${issue.severity.toUpperCase()}] ${issue.rule} (line ${issue.line}): ${issue.message}`);
+  }
+
+  lines.push("");
+  lines.push(`${errors} error(s), ${warnings} warning(s)`);
+
+  return lines.join("\n");
+}
+
 /** Format type validation violations for console output. */
 export function formatTypeViolations(
   violations: Array<{ key: string; expectedType: string; actualValue: string; message: string }>
