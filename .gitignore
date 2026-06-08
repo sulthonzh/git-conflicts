@@ -6,4 +6,6 @@ coverage/
 .env
 .env.local
 .env.*.local
+# But keep test fixtures
+!tests/fixtures/.env
 mydatabase.db
