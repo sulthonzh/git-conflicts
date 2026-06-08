@@ -4,6 +4,8 @@
  * Security: redacts secret values in all output.
  */
 
+import { inspect } from "util";
+
 export interface CheckResult {
   missing: string[];
   extra: string[];
@@ -20,6 +22,41 @@ export interface DiffEntry {
 
 export interface OutputOptions {
   json: boolean;
+}
+
+/** Sanitize output data to prevent information leakage */
+function sanitizeOutput(data: unknown): unknown {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  if (typeof data === "string") {
+    // Redact potential secrets in strings
+    return data
+      .replace(/AKIA[0-9A-Z]{16}/g, "[AWS_ACCESS_KEY]")
+      .replace(/gh[ps]_[A-Za-z0-9_]{36,}/g, "[GITHUB_TOKEN]")
+      .replace(/eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/g, "[JWT]")
+      .replace(/[A-Za-z0-9/+=]{40}/g, "[SECRET]");
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeOutput(item));
+  }
+
+  if (typeof data === "object") {
+    const result: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      // Skip redacted fields
+      if (key.includes("secret") || key.includes("token") || key.includes("password")) {
+        result[key] = "[REDACTED]";
+      } else {
+        result[key] = sanitizeOutput(value);
+      }
+    }
+    return result;
+  }
+
+  return data;
 }
 
 /** Format check results for console output. */
@@ -95,11 +132,27 @@ export function formatSecretsResult(
 
   lines.push(`⚠ Found ${secrets.length} potential secret(s):\n`);
 
-  for (const secret of secrets) {
-    lines.push(`  [${secret.pattern.severity.toUpperCase()}] ${secret.pattern.name}`);
-    lines.push(`    Key: ${secret.key} (line ${secret.line})`);
-    lines.push(`    Value: ${secret.redacted}`);
-    lines.push("");
+  // Group by severity
+  const bySeverity = secrets.reduce((acc, secret) => {
+    if (!acc[secret.pattern.severity]) {
+      acc[secret.pattern.severity] = [];
+    }
+    acc[secret.pattern.severity].push(secret);
+    return acc;
+  }, {} as Record<string, typeof secrets>);
+
+  const severityOrder = ["critical", "high", "medium"];
+  
+  for (const severity of severityOrder) {
+    if (bySeverity[severity]) {
+      lines.push(`\n  [${severity.toUpperCase()}] (${bySeverity[severity].length} found):`);
+      for (const secret of bySeverity[severity]) {
+        lines.push(`    Key: ${secret.key} (line ${secret.line})`);
+        lines.push(`    Pattern: ${secret.pattern.name}`);
+        lines.push(`    Value: ${secret.redacted}`);
+        lines.push("");
+      }
+    }
   }
 
   return lines.join("\n");
@@ -117,18 +170,51 @@ export function formatTypeViolations(
 
   lines.push("Type violations:");
   for (const v of violations) {
-    lines.push(`  ✗ ${v.key}: ${v.message} (expected @type ${v.expectedType})`);
+    // Redact the actual value in output
+    const safeValue = v.actualValue.length > 20 ? 
+      v.actualValue.substring(0, 10) + "..." + v.actualValue.substring(v.actualValue.length - 10) : 
+      v.actualValue;
+    lines.push(`  ✗ ${v.key}: ${v.message} (expected @type ${v.expectedType}, got "${safeValue}")`);
   }
 
   return lines.join("\n");
 }
 
-/** Write JSON output to stdout. */
+/** Write JSON output to stdout with error handling. */
 export function outputJson(data: unknown): void {
-  process.stdout.write(JSON.stringify(data, null, 2) + "\n");
+  try {
+    const sanitized = sanitizeOutput(data);
+    process.stdout.write(JSON.stringify(sanitized, null, 2) + "\n");
+  } catch (err) {
+    const error = err as Error;
+    process.stderr.write(`Error generating JSON output: ${error.message}\n`);
+    process.exit(1);
+  }
 }
 
-/** Write text output to stdout. */
+/** Write text output to stdout with error handling. */
 export function outputText(text: string): void {
-  process.stdout.write(text + "\n");
+  try {
+    const sanitized = sanitizeOutput(text);
+    process.stdout.write(String(sanitized) + "\n");
+  } catch (err) {
+    const error = err as Error;
+    process.stderr.write(`Error generating text output: ${error.message}\n`);
+    process.exit(1);
+  }
+}
+
+/** Safe output function that handles errors gracefully */
+export function safeOutput(data: unknown, useJson: boolean = false): void {
+  try {
+    if (useJson) {
+      outputJson(data);
+    } else {
+      outputText(String(data));
+    }
+  } catch (err) {
+    const error = err as Error;
+    process.stderr.write(`Output error: ${error.message}\n`);
+    process.exit(1);
+  }
 }

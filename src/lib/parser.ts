@@ -30,14 +30,47 @@ export function validateFilePath(filePath: string): string {
   // Normalize path separators
   const normalized = filePath.replace(/\\/g, "/");
 
-  // Reject path traversal
-  if (normalized.includes("..") || normalized.includes("~")) {
+  // Basic validation
+  if (normalized.length === 0 || normalized.length > 4096) {
+    throw new Error("File path must be between 1 and 4096 characters");
+  }
+
+  // Reject null bytes and other control characters
+  if (normalized.includes("\0") || /\x00|\x01|\x02|\x03|\x04|\x05|\x06|\x07|\x08|\x0b|\x0c|\x0e|\x0f|\x10|\x11|\x12|\x13|\x14|\x15|\x16|\x17|\x18|\x19|\x1a|\x1b|\x1c|\x1d|\x1e|\x1f/.test(normalized)) {
+    throw new Error("File path contains invalid characters");
+  }
+
+  // Reject path traversal attempts
+  if (normalized.includes("..") || normalized.includes("~") || normalized.includes("//") || normalized.includes("/./")) {
     throw new Error(`Invalid file path: path traversal detected in "${filePath}"`);
   }
 
-  // Reject absolute paths outside cwd (allow relative and cwd-relative)
-  if (normalized.startsWith("/") && !normalized.startsWith(process.cwd())) {
-    throw new Error(`Invalid file path: absolute paths outside cwd are not allowed`);
+  // Reject attempts to escape current directory
+  if (normalized.startsWith("/") && !normalized.startsWith(process.cwd() + "/")) {
+    throw new Error(`Invalid file path: absolute paths outside current working directory are not allowed`);
+  }
+
+  // Resolve the path to check for symlinks
+  const resolvedPath = resolve(normalized);
+  const cwd = process.cwd();
+  
+  // Check if resolved path is within current working directory
+  if (!resolvedPath.startsWith(cwd + "/") && resolvedPath !== cwd) {
+    throw new Error(`Invalid file path: "${filePath}" resolves to outside current working directory`);
+  }
+
+  // Additional check for symlinks that might point outside
+  try {
+    const stats = require("fs").statSync(resolvedPath);
+    if (stats.isSymbolicLink()) {
+      const realPath = require("fs").realpathSync(resolvedPath);
+      if (!realPath.startsWith(cwd + "/") && realPath !== cwd) {
+        throw new Error(`Invalid file path: symlink "${filePath}" points outside current working directory`);
+      }
+    }
+  } catch (err) {
+    // If we can't resolve the symlink, reject it
+    throw new Error(`Invalid file path: cannot resolve symlink "${filePath}"`);
   }
 
   return filePath;

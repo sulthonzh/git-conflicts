@@ -28,12 +28,18 @@ export interface FixOptions extends OutputOptions {
  * - Optionally removes extra keys (--prune)
  * - Optionally sorts keys alphabetically (--sort)
  * - Preserves comments and structure
+ * - Creates backup of original file before modification
  */
 export function runFix(
   envPath: string,
   examplePath: string,
   options: FixOptions = { json: false }
 ): FixResult {
+  // Validate inputs
+  if (!envPath || !examplePath) {
+    throw new Error("Both env path and example path are required");
+  }
+
   const envParsed = parseEnvFile(envPath);
   const envMap = toEnvMap(envParsed);
 
@@ -43,8 +49,15 @@ export function runFix(
   let exampleContent: string;
   try {
     exampleContent = readFileSync(exampleFullPath, "utf-8");
-  } catch {
-    throw new Error(`Example file not found: ${exampleFullPath}`);
+  } catch (err: unknown) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === "ENOENT") {
+      throw new Error(`Example file not found: ${exampleFullPath}`);
+    }
+    if (error.code === "EACCES") {
+      throw new Error(`Permission denied reading example file: ${exampleFullPath}`);
+    }
+    throw new Error(`Failed to read example file ${exampleFullPath}: ${error.message}`);
   }
 
   const annotations = extractAnnotations(exampleContent);
@@ -136,8 +149,37 @@ export function runFix(
 
   const outputPath = options.output || envPath;
 
+  // Validate output path
+  if (outputPath !== envPath) {
+    validateFilePath(outputPath);
+  }
+
   if (!options.dryRun) {
-    writeFileSync(outputPath, output, "utf-8");
+    try {
+      // Create backup of original file
+      const backupPath = `${envPath}.backup.${Date.now()}`;
+      writeFileSync(backupPath, envParsed.raw, "utf-8");
+      
+      // Write the fixed content
+      writeFileSync(outputPath, output, "utf-8");
+      
+      // Clean up backup if successful
+      try {
+        require("fs").unlinkSync(backupPath);
+      } catch (cleanupErr) {
+        // If cleanup fails, log it but don't fail the operation
+        process.stderr.write(`Warning: Failed to clean up backup file ${backupPath}: ${cleanupErr}\n`);
+      }
+    } catch (err: unknown) {
+      const error = err as NodeJS.ErrnoException;
+      if (error.code === "EACCES") {
+        throw new Error(`Permission denied writing to ${outputPath}`);
+      }
+      if (error.code === "ENOSPC") {
+        throw new Error(`No space left on device when writing to ${outputPath}`);
+      }
+      throw new Error(`Failed to write fixed file ${outputPath}: ${error.message}`);
+    }
   }
 
   const result: FixResult = {

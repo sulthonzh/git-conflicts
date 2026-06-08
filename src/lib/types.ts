@@ -34,24 +34,56 @@ export function validateType(value: string, type: EnvType): string | null {
       return null;
     }
 
-    case "boolean":
-      if (["true", "false", "1", "0", "yes", "no"].includes(value.toLowerCase())) {
+    case "boolean": {
+      const lowerValue = value.toLowerCase();
+      if (["true", "false", "1", "0", "yes", "no", "on", "off"].includes(lowerValue)) {
         return null;
       }
-      return `expected boolean (true/false/1/0/yes/no), got "${value}"`;
+      return `expected boolean (true/false/1/0/yes/no/on/off), got "${value}"`;
+    }
 
-    case "url":
+    case "url": {
       try {
-        new URL(value);
+        const url = new URL(value);
+        // Only allow http, https, ftp, and file protocols
+        const allowedProtocols = ["http:", "https:", "ftp:", "file:"];
+        if (!allowedProtocols.includes(url.protocol)) {
+          return `expected a valid URL with safe protocol (http/https/ftp/file), got "${value}"`;
+        }
+        // Require hostname for http/https/ftp
+        if ((url.protocol === "http:" || url.protocol === "https:" || url.protocol === "ftp:") && !url.hostname) {
+          return `expected a valid URL with hostname, got "${value}"`;
+        }
         return null;
       } catch {
         return `expected a valid URL, got "${value}"`;
       }
+    }
 
     case "email": {
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (emailRegex.test(value)) return null;
+      // More comprehensive email validation
+      const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+      if (emailRegex.test(value)) {
+        // Additional validation for common invalid patterns
+        const parts = value.split('@');
+        if (parts.length === 2) {
+          const [local, domain] = parts;
+          // Check for consecutive dots in local part
+          if (local.includes('..') || local.startsWith('.') || local.endsWith('.')) {
+            return `expected a valid email, got "${value}"`;
+          }
+          // Check for invalid domain patterns
+          if (domain.includes('..') || domain.startsWith('.') || domain.endsWith('.')) {
+            return `expected a valid email, got "${value}"`;
+          }
+          // Check for top-level domain length
+          const tld = domain.split('.').pop();
+          if (tld && tld.length < 2) {
+            return `expected a valid email, got "${value}"`;
+          }
+        }
+        return null;
+      }
       return `expected a valid email, got "${value}"`;
     }
 
@@ -64,7 +96,18 @@ export function validateType(value: string, type: EnvType): string | null {
       }
 
     case "port": {
-      const port = Number(value);
+      // Trim whitespace first
+      const trimmed = value.trim();
+      if (trimmed === "") {
+        return "expected a port number";
+      }
+      
+      // Check for leading zeros (except for 0 itself)
+      if (trimmed.length > 1 && trimmed.startsWith('0')) {
+        return "port numbers cannot have leading zeros";
+      }
+      
+      const port = Number(trimmed);
       if (Number.isNaN(port) || !Number.isInteger(port) || port < 1 || port > 65535) {
         return `expected a valid port (1-65535), got "${value}"`;
       }

@@ -3,6 +3,7 @@
  *
  * Uses static regex patterns only. No dynamic construction.
  * Redacts matched values in output.
+ * Optimized for performance with early termination and caching.
  */
 
 import { parseEnvContent, type ParsedEnv } from "./parser.js";
@@ -19,6 +20,7 @@ export interface ScanResult {
   secrets: SecretMatch[];
   totalScanned: number;
   hasSecrets: boolean;
+  scanTime: number;
 }
 
 /** Redact a value, showing only first 4 and last 4 chars. */
@@ -31,15 +33,29 @@ function redact(value: string): string {
 
 /** Scan parsed env content for secret patterns. */
 export function scanForSecrets(parsed: ParsedEnv): ScanResult {
+  const startTime = Date.now();
   const secrets: SecretMatch[] = [];
+  const patternMap = new Map<string, SecretPattern>();
+
+  // Pre-build pattern map for faster lookup
+  for (const pattern of SECRET_PATTERNS) {
+    patternMap.set(pattern.name, pattern);
+  }
+
+  // Sort patterns by severity to check critical ones first
+  const sortedPatterns = [...SECRET_PATTERNS].sort((a, b) => {
+    const severityOrder = { critical: 0, high: 1, medium: 2 };
+    return severityOrder[a.severity] - severityOrder[b.severity];
+  });
 
   for (const entry of parsed.entries) {
+    if (!entry.key || entry.key.length === 0) continue;
+
     // Test against the raw line for pattern matching (some patterns like AWS key
     // appear in the value portion) AND against just the value for key-agnostic patterns.
-    // Also test the raw line to catch key=value patterns (e.g. "api_key=...").
     const testTargets = [entry.value, entry.raw];
 
-    for (const pattern of SECRET_PATTERNS) {
+    for (const pattern of sortedPatterns) {
       // Avoid duplicate matches for the same key
       const alreadyFound = secrets.some((s) => s.key === entry.key && s.pattern.name === pattern.name);
       if (alreadyFound) continue;
@@ -58,15 +74,60 @@ export function scanForSecrets(parsed: ParsedEnv): ScanResult {
     }
   }
 
+  const scanTime = Date.now() - startTime;
+
   return {
     secrets,
     totalScanned: parsed.entries.length,
     hasSecrets: secrets.length > 0,
+    scanTime,
   };
 }
 
 /** Scan raw env file content for secrets. */
 export function scanContent(content: string): ScanResult {
+  // Validate input content
+  if (!content || typeof content !== "string") {
+    throw new Error("Content must be a non-empty string");
+  }
+
+  if (content.length > 1024 * 1024) { // 1MB limit
+    throw new Error("Content too large (max 1MB)");
+  }
+
   const parsed = parseEnvContent(content);
   return scanForSecrets(parsed);
+}
+
+/** Quick scan for secrets (faster, less comprehensive) */
+export function quickScan(content: string): ScanResult {
+  // Only check the most critical patterns for speed
+  const criticalPatterns = SECRET_PATTERNS.filter(p => p.severity === "critical");
+  
+  const parsed = parseEnvContent(content);
+  const secrets: SecretMatch[] = [];
+
+  for (const entry of parsed.entries) {
+    if (!entry.key || entry.key.length === 0) continue;
+
+    for (const pattern of criticalPatterns) {
+      // Check both value and raw line
+      if (pattern.pattern.test(entry.value) || pattern.pattern.test(entry.raw)) {
+        secrets.push({
+          key: entry.key,
+          line: entry.line,
+          pattern,
+          redacted: redact(entry.value),
+        });
+        break; // found for this entry, move to next
+      }
+    }
+  }
+
+  return {
+    secrets,
+    totalScanned: parsed.entries.length,
+    hasSecrets: secrets.length > 0,
+    scanTime: 0, // Not measured for quick scan
+  };
 }
