@@ -6,7 +6,10 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  banner: {
-    js: '#!/usr/bin/env node',
+  esbuildOptions(options) {
+    // Only add shebang to CJS output for Node.js compatibility
+    if (options.format === 'cjs') {
+      options.banner = { js: '#!/usr/bin/env node' };
+    }
   },
 });
