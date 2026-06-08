@@ -45,13 +45,13 @@ export function validateType(value: string, type: EnvType): string | null {
     case "url": {
       try {
         const url = new URL(value);
-        // Only allow http, https, ftp, and file protocols
-        const allowedProtocols = ["http:", "https:", "ftp:", "file:"];
+        // Allow common protocols including databases and web protocols
+        const allowedProtocols = ["http:", "https:", "ftp:", "file:", "postgresql:", "postgres:", "mysql:", "mongodb:", "redis:", "amqp:", "ws:", "wss:"];
         if (!allowedProtocols.includes(url.protocol)) {
-          return `expected a valid URL with safe protocol (http/https/ftp/file), got "${value}"`;
+          return `expected a valid URL (http/https/ftp/file/postgres/mysql/mongodb/redis/websocket), got "${value}"`;
         }
-        // Require hostname for http/https/ftp
-        if ((url.protocol === "http:" || url.protocol === "https:" || url.protocol === "ftp:") && !url.hostname) {
+        // Require hostname for most protocols except file
+        if (url.protocol !== "file:" && !url.hostname) {
           return `expected a valid URL with hostname, got "${value}"`;
         }
         return null;

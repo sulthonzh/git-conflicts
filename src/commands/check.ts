@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { parseEnvFile, toEnvMap, extractAnnotations, validateFilePath } from "../lib/parser.js";
+import { parseEnvFile, toEnvMap, extractAnnotations, validateFilePath, validateAndResolveFile } from "../lib/parser.js";
 import { formatCheckResult, outputJson, outputText, type CheckResult, type OutputOptions } from "../lib/output.js";
 
 export interface CheckOptions extends OutputOptions {
@@ -10,14 +10,20 @@ export interface CheckOptions extends OutputOptions {
 
 export function runCheck(envPath: string, examplePath: string, options: CheckOptions = { json: false }): CheckResult {
   const envParsed = parseEnvFile(envPath);
-  const exampleValidated = validateFilePath(examplePath);
-  const exampleFullPath = resolve(exampleValidated);
+  const exampleFullPath = validateAndResolveFile(examplePath);
 
   let exampleContent: string;
   try {
     exampleContent = readFileSync(exampleFullPath, "utf-8");
-  } catch {
-    throw new Error(`Example file not found: ${exampleFullPath}`);
+  } catch (err: unknown) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === "ENOENT") {
+      throw new Error(`Example file not found: ${exampleFullPath}`);
+    }
+    if (error.code === "EACCES") {
+      throw new Error(`Permission denied reading example file: ${exampleFullPath}`);
+    }
+    throw new Error(`Failed to read example file ${exampleFullPath}: ${error.message}`);
   }
 
   const envMap = toEnvMap(envParsed);
@@ -41,6 +47,9 @@ export function runCheck(envPath: string, examplePath: string, options: CheckOpt
         // In strict mode, extra keys are treated as errors
         extra.push(key);
       }
+    } else if (options.strict && envMap.get(key) === "") {
+      // In strict mode, empty values are always errors
+      empty.push(key);
     }
   }
 

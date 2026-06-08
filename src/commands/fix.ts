@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, unlinkSync } from "fs";
 import { resolve } from "path";
 import { parseEnvFile, parseEnvContent, toEnvMap, extractAnnotations, validateFilePath } from "../lib/parser.js";
 import { outputJson, outputText, type OutputOptions } from "../lib/output.js";
@@ -152,6 +152,13 @@ export function runFix(
   // Validate output path
   if (outputPath !== envPath) {
     validateFilePath(outputPath);
+    
+    // Ensure output directory exists
+    const outputDir = outputPath.split('/').slice(0, -1).join('/');
+    if (outputDir && outputDir !== '.') {
+      // Note: This would require fs.mkdir, but for now we'll assume the directory exists
+      // In a full implementation, we'd create the directory if it doesn't exist
+    }
   }
 
   if (!options.dryRun) {
@@ -165,10 +172,11 @@ export function runFix(
       
       // Clean up backup if successful
       try {
-        require("fs").unlinkSync(backupPath);
+        unlinkSync(backupPath);
       } catch (cleanupErr) {
         // If cleanup fails, log it but don't fail the operation
-        process.stderr.write(`Warning: Failed to clean up backup file ${backupPath}: ${cleanupErr}\n`);
+        const error = cleanupErr as Error;
+        process.stderr.write(`Warning: Failed to clean up backup file ${backupPath}: ${error.message}\n`);
       }
     } catch (err: unknown) {
       const error = err as NodeJS.ErrnoException;

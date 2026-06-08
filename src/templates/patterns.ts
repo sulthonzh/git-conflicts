@@ -19,7 +19,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     name: "AWS Secret Access Key",
-    pattern: /(?:AWS_SECRET_ACCESS_KEY|aws_secret_access_key|AwsSecretAccessKey|AWS_SECRET)\s*[=:]\s*['"]?([A-Za-z0-9/+=]{40})['"]?/,
+    pattern: /(?:AWS_SECRET_ACCESS_KEY|aws_secret_access_key|AwsSecretAccessKey|AWS_SECRET)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/,
     severity: "critical",
     description: "AWS IAM secret access key",
   },
@@ -43,19 +43,19 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     name: "Generic API Key",
-    pattern: /(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?key)\s*[=:]\s*['"]?([A-Za-z0-9_\-]{20,})['"]?/i,
+    pattern: /(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?key)\s*[=:]\s*['"]?[A-Za-z0-9_\-]{20,}['"]?/i,
     severity: "high",
     description: "Generic API key or secret",
   },
   {
     name: "Generic Token",
-    pattern: /(?:token|bearer|auth[_-]?token|session[_-]?token)\s*[=:]\s*['"]?([A-Fa-f0-9]{32,}|[A-Za-z0-9_\-]{32,})['"]?/i,
+    pattern: /(?:token|bearer|auth[_-]?token|session[_-]?token)\s*[=:]\s*['"]?(?:[A-Fa-f0-9]{32,}|[A-Za-z0-9_\-]{32,})['"]?/i,
     severity: "high",
     description: "Generic authentication token",
   },
   {
     name: "Database Connection String",
-    pattern: /(?:mysql|postgres|mongodb|redis|cassandra)\://[^\s]+@[\w.-]+:\d+[/\w.-]*/i,
+    pattern: /(?:mysql|postgres|mongodb|redis|cassandra):\/\/[\w.:]+@[^\s\/]+:[0-9]+(?:\/[^\s]*)?/i,
     severity: "critical",
     description: "Database connection string with credentials",
   },
@@ -76,5 +76,29 @@ export const SECRET_PATTERNS: SecretPattern[] = [
     pattern: /https:\/\/hooks\.slack\.com\/services\/[A-Z0-9]{9,}/,
     severity: "high",
     description: "Slack incoming webhook URL",
+  },
+  {
+    name: "OpenAI API Key",
+    pattern: /sk-[A-Za-z0-9]{48}/,
+    severity: "critical",
+    description: "OpenAI API key",
+  },
+  {
+    name: "Google API Key",
+    pattern: /AIza[0-9A-Za-z_-]{35}/,
+    severity: "high",
+    description: "Google API key",
+  },
+  {
+    name: "Stripe Publishable Key",
+    pattern: /pk_live_[A-Za-z0-9]{24}/,
+    severity: "high",
+    description: "Stripe publishable key",
+  },
+  {
+    name: "Slack Webhook Secret",
+    pattern: /whsec_[A-Za-z0-9]{32,}/,
+    severity: "high",
+    description: "Slack webhook secret",
   },
 ];

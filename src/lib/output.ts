@@ -24,6 +24,19 @@ export interface OutputOptions {
   json: boolean;
 }
 
+// Pre-compiled regex patterns for performance
+const SECRET_PATTERNS = [
+  /AKIA[0-9A-Z]{16}/g,
+  /gh[ps]_[A-Za-z0-9_]{36,}/g,
+  /eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/g,
+  /[A-Za-z0-9/+=]{40}/g,
+  /sk-[A-Za-z0-9]{48}/g, // OpenAI API key
+  /AIza[0-9A-Za-z_-]{35}/g, // Google API key
+  /ghp_[A-Za-z0-9]{36}/g, // GitHub personal access token
+  /pk_live_[A-Za-z0-9]{24}/g, // Stripe publishable key
+  /whsec_[A-Za-z0-9]{32,}/g, // Slack webhook secret
+];
+
 /** Sanitize output data to prevent information leakage */
 function sanitizeOutput(data: unknown): unknown {
   if (data === null || data === undefined) {
@@ -32,11 +45,11 @@ function sanitizeOutput(data: unknown): unknown {
 
   if (typeof data === "string") {
     // Redact potential secrets in strings
-    return data
-      .replace(/AKIA[0-9A-Z]{16}/g, "[AWS_ACCESS_KEY]")
-      .replace(/gh[ps]_[A-Za-z0-9_]{36,}/g, "[GITHUB_TOKEN]")
-      .replace(/eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/g, "[JWT]")
-      .replace(/[A-Za-z0-9/+=]{40}/g, "[SECRET]");
+    let sanitized = data;
+    for (const pattern of SECRET_PATTERNS) {
+      sanitized = sanitized.replace(pattern, "[REDACTED]");
+    }
+    return sanitized;
   }
 
   if (Array.isArray(data)) {
@@ -47,7 +60,8 @@ function sanitizeOutput(data: unknown): unknown {
     const result: any = {};
     for (const [key, value] of Object.entries(data)) {
       // Skip redacted fields
-      if (key.includes("secret") || key.includes("token") || key.includes("password")) {
+      if (key.includes("secret") || key.includes("token") || key.includes("password") || 
+          key.includes("key") || key.includes("auth") || key.includes("credential")) {
         result[key] = "[REDACTED]";
       } else {
         result[key] = sanitizeOutput(value);

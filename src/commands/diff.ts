@@ -1,14 +1,13 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { parseEnvFile, toEnvMap, extractAnnotations, validateFilePath } from "../lib/parser.js";
+import { parseEnvFile, toEnvMap, extractAnnotations, validateAndResolveFile } from "../lib/parser.js";
 import { formatDiffResult, outputJson, outputText, type DiffEntry, type OutputOptions } from "../lib/output.js";
 
 export interface DiffOptions extends OutputOptions {}
 
 export function runDiff(envPath: string, examplePath: string, options: DiffOptions = { json: false }): DiffEntry[] {
   const envParsed = parseEnvFile(envPath);
-  const exampleValidated = validateFilePath(examplePath);
-  const exampleFullPath = resolve(exampleValidated);
+  const exampleFullPath = validateAndResolveFile(examplePath);
 
   let exampleContent: string;
   try {

@@ -1,8 +1,9 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { parseEnvFile, toEnvMap, extractAnnotations, validateFilePath } from "../lib/parser.js";
+import { parseEnvFile, toEnvMap, extractAnnotations, validateAndResolveFile } from "../lib/parser.js";
 import { validateTypes, type TypeViolation } from "../lib/types.js";
-import { runCheck, type CheckResult } from "./check.js";
+import { runCheck } from "./check.js";
+import type { CheckResult } from "../lib/output.js";
 import { formatTypeViolations, formatCheckResult, outputJson, outputText, type OutputOptions } from "../lib/output.js";
 
 export interface ValidateOptions extends OutputOptions {}
@@ -20,14 +21,14 @@ export function runValidate(
 ): ValidateResult {
   const checkResult = runCheck(envPath, examplePath, { json: false });
 
-  const exampleValidated = validateFilePath(examplePath);
-  const exampleFullPath = resolve(exampleValidated);
+  const exampleFullPath = validateAndResolveFile(examplePath);
 
   let exampleContent: string;
   try {
     exampleContent = readFileSync(exampleFullPath, "utf-8");
-  } catch {
-    throw new Error(`Example file not found: ${exampleFullPath}`);
+  } catch (err: unknown) {
+    const error = err as NodeJS.ErrnoException;
+    throw new Error(`Failed to read example file ${examplePath}: ${error.message}`);
   }
 
   const envParsed = parseEnvFile(envPath);

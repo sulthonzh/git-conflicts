@@ -23,11 +23,20 @@ export interface ScanResult {
   scanTime: number;
 }
 
-/** Redact a value, showing only first 4 and last 4 chars. */
+/** Redact a value securely, showing limited characters. */
 function redact(value: string): string {
-  if (value.length <= 8) {
-    return "****";
+  if (!value || value.length === 0) {
+    return "";
   }
+  
+  if (value.length <= 4) {
+    return "*".repeat(value.length);
+  }
+  
+  if (value.length <= 8) {
+    return `${value.slice(0, 2)}**${value.slice(-2)}`;
+  }
+  
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
@@ -35,12 +44,6 @@ function redact(value: string): string {
 export function scanForSecrets(parsed: ParsedEnv): ScanResult {
   const startTime = Date.now();
   const secrets: SecretMatch[] = [];
-  const patternMap = new Map<string, SecretPattern>();
-
-  // Pre-build pattern map for faster lookup
-  for (const pattern of SECRET_PATTERNS) {
-    patternMap.set(pattern.name, pattern);
-  }
 
   // Sort patterns by severity to check critical ones first
   const sortedPatterns = [...SECRET_PATTERNS].sort((a, b) => {
@@ -48,9 +51,10 @@ export function scanForSecrets(parsed: ParsedEnv): ScanResult {
     return severityOrder[a.severity] - severityOrder[b.severity];
   });
 
-  for (const entry of parsed.entries) {
-    if (!entry.key || entry.key.length === 0) continue;
+  // Filter out entries with empty keys
+  const validEntries = parsed.entries.filter(entry => entry.key && entry.key.length > 0);
 
+  for (const entry of validEntries) {
     // Test against the raw line for pattern matching (some patterns like AWS key
     // appear in the value portion) AND against just the value for key-agnostic patterns.
     const testTargets = [entry.value, entry.raw];
@@ -78,7 +82,7 @@ export function scanForSecrets(parsed: ParsedEnv): ScanResult {
 
   return {
     secrets,
-    totalScanned: parsed.entries.length,
+    totalScanned: validEntries.length,
     hasSecrets: secrets.length > 0,
     scanTime,
   };
@@ -106,10 +110,11 @@ export function quickScan(content: string): ScanResult {
   
   const parsed = parseEnvContent(content);
   const secrets: SecretMatch[] = [];
+  
+  // Filter out entries with empty keys
+  const validEntries = parsed.entries.filter(entry => entry.key && entry.key.length > 0);
 
-  for (const entry of parsed.entries) {
-    if (!entry.key || entry.key.length === 0) continue;
-
+  for (const entry of validEntries) {
     for (const pattern of criticalPatterns) {
       // Check both value and raw line
       if (pattern.pattern.test(entry.value) || pattern.pattern.test(entry.raw)) {
@@ -126,8 +131,8 @@ export function quickScan(content: string): ScanResult {
 
   return {
     secrets,
-    totalScanned: parsed.entries.length,
+    totalScanned: validEntries.length,
     hasSecrets: secrets.length > 0,
-    scanTime: 0, // Not measured for quick scan
+    scanTime: Date.now(), // Return timestamp instead of 0 for consistency
   };
 }

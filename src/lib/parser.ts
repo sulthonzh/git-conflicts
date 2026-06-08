@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, statSync, realpathSync } from "fs";
 import { resolve } from "path";
 
 export interface EnvEntry {
@@ -45,35 +45,40 @@ export function validateFilePath(filePath: string): string {
     throw new Error(`Invalid file path: path traversal detected in "${filePath}"`);
   }
 
-  // Reject attempts to escape current directory
-  if (normalized.startsWith("/") && !normalized.startsWith(process.cwd() + "/")) {
-    throw new Error(`Invalid file path: absolute paths outside current working directory are not allowed`);
-  }
-
-  // Resolve the path to check for symlinks
+  // Resolve the path to check if it's within current working directory
   const resolvedPath = resolve(normalized);
   const cwd = process.cwd();
   
-  // Check if resolved path is within current working directory
-  if (!resolvedPath.startsWith(cwd + "/") && resolvedPath !== cwd) {
+  // Check if resolved path is within current working directory (exact match or proper subdirectory)
+  const isInCwd = resolvedPath === cwd || resolvedPath.startsWith(cwd + "/");
+  if (!isInCwd) {
     throw new Error(`Invalid file path: "${filePath}" resolves to outside current working directory`);
   }
 
-  // Additional check for symlinks that might point outside
-  try {
-    const stats = require("fs").statSync(resolvedPath);
-    if (stats.isSymbolicLink()) {
-      const realPath = require("fs").realpathSync(resolvedPath);
-      if (!realPath.startsWith(cwd + "/") && realPath !== cwd) {
-        throw new Error(`Invalid file path: symlink "${filePath}" points outside current working directory`);
-      }
-    }
-  } catch (err) {
-    // If we can't resolve the symlink, reject it
-    throw new Error(`Invalid file path: cannot resolve symlink "${filePath}"`);
-  }
-
   return filePath;
+}
+
+/** Validate and resolve a file path, checking if it exists. */
+export function validateAndResolveFile(filePath: string): string {
+  const validated = validateFilePath(filePath);
+  const resolvedPath = resolve(validated);
+  
+  try {
+    const stats = statSync(resolvedPath);
+    if (!stats.isFile()) {
+      throw new Error(`Path is not a file: "${filePath}"`);
+    }
+    return resolvedPath;
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === "ENOENT") {
+      throw new Error(`File not found: "${filePath}"`);
+    }
+    if (error.code === "EACCES") {
+      throw new Error(`Permission denied: "${filePath}"`);
+    }
+    throw new Error(`Cannot access file "${filePath}": ${error.message}`);
+  }
 }
 
 /** Strip BOM if present. */
@@ -172,21 +177,14 @@ export function parseEnvContent(content: string): ParsedEnv {
 
 /** Parse an env file from disk. */
 export function parseEnvFile(filePath: string): ParsedEnv {
-  const validated = validateFilePath(filePath);
-  const fullPath = resolve(validated);
-
+  const fullPath = validateAndResolveFile(filePath);
+  
   let content: string;
   try {
     content = readFileSync(fullPath, "utf-8");
   } catch (err: unknown) {
     const error = err as NodeJS.ErrnoException;
-    if (error.code === "ENOENT") {
-      throw new Error(`File not found: ${fullPath}`);
-    }
-    if (error.code === "EACCES") {
-      throw new Error(`Permission denied: ${fullPath}`);
-    }
-    throw new Error(`Failed to read file ${fullPath}: ${error.message}`);
+    throw new Error(`Failed to read file ${filePath}: ${error.message}`);
   }
 
   return parseEnvContent(content);
@@ -205,13 +203,31 @@ export function toEnvMap(parsed: ParsedEnv): Map<string, string> {
 export function extractAnnotations(
   content: string
 ): Map<string, { required: boolean; type: string | null; defaultValue: string }> {
+  if (!content || typeof content !== "string") {
+    throw new Error("Content must be a non-empty string");
+  }
+
+  if (content.length > 1024 * 1024) { // 1MB limit
+    throw new Error("Content too large (max 1MB)");
+  }
+
   const parsed = parseEnvContent(content);
   const annotations = new Map<string, { required: boolean; type: string | null; defaultValue: string }>();
 
   for (const entry of parsed.entries) {
-    // Look at the raw line for inline annotations like: KEY=value # @required @type url
-    const rawAfterKey = entry.raw.slice(entry.raw.indexOf("=") + 1);
-    const annotationPart = rawAfterKey;
+    if (!entry.key || entry.key.length === 0) continue;
+    
+    // Look at the parsed value for inline annotations, avoiding false positives from values containing #
+    let annotationPart = entry.value;
+    
+    // Also check the raw line after the value portion
+    if (entry.raw.includes("#")) {
+      const valueEnd = entry.raw.indexOf("=") + 1;
+      const commentStart = entry.raw.indexOf("#", valueEnd);
+      if (commentStart !== -1) {
+        annotationPart = entry.raw.slice(commentStart);
+      }
+    }
 
     const required = /@required/i.test(annotationPart);
     const typeMatch = annotationPart.match(/@type\s+(\w+)/i);
