@@ -30,7 +30,7 @@ export function validateType(value: string, type: EnvType): string | null {
     case "number": {
       if (value.trim() === "") return "expected a number";
       const num = Number(value);
-      if (Number.isNaN(num)) return `expected a number, got "${value}"`;
+      if (!Number.isFinite(num)) return `expected a finite number, got "${value}"`;
       return null;
     }
 

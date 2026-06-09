@@ -59,9 +59,15 @@ function sanitizeOutput(data: unknown): unknown {
   if (typeof data === "object") {
     const result: any = {};
     for (const [key, value] of Object.entries(data)) {
-      // Skip redacted fields
-      if (key.includes("secret") || key.includes("token") || key.includes("password") || 
-          key.includes("key") || key.includes("auth") || key.includes("credential")) {
+      // Only redact fields that are clearly credential containers (value fields),
+      // not structural fields like "key" (which holds the env var name, not a secret).
+      const lower = key.toLowerCase();
+      const isSecretField = (lower.includes("password") || lower.includes("secret") ||
+          lower.includes("credential") || lower.includes("apikey") ||
+          lower.includes("access_token") || lower.includes("auth_token") ||
+          lower.includes("private_key") || lower.includes("connection_string"))
+          && !lower.endsWith("name") && !lower.endsWith("type");
+      if (isSecretField) {
         result[key] = "[REDACTED]";
       } else {
         result[key] = sanitizeOutput(value);

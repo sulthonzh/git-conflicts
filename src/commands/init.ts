@@ -53,7 +53,12 @@ export function runInit(envPath: string, options: InitOptions = { json: false })
 
   const output = lines.join("\n") + "\n";
 
-  const outputPath = options.output || resolve(resolve(envPath), "..", ".env.example");
+  let outputPath: string;
+  if (options.output) {
+    outputPath = validateFilePath(options.output);
+  } else {
+    outputPath = resolve(resolve(envPath), "..", ".env.example");
+  }
 
   writeFileSync(outputPath, output, "utf-8");
 

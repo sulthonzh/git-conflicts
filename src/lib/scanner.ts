@@ -105,6 +105,7 @@ export function scanContent(content: string): ScanResult {
 
 /** Quick scan for secrets (faster, less comprehensive) */
 export function quickScan(content: string): ScanResult {
+  const startTime = Date.now();
   // Only check the most critical patterns for speed
   const criticalPatterns = SECRET_PATTERNS.filter(p => p.severity === "critical");
   
@@ -133,6 +134,6 @@ export function quickScan(content: string): ScanResult {
     secrets,
     totalScanned: validEntries.length,
     hasSecrets: secrets.length > 0,
-    scanTime: Date.now(), // Return timestamp instead of 0 for consistency
+    scanTime: Date.now() - startTime,
   };
 }

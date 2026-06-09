@@ -140,30 +140,38 @@ export function runFix(
   }
 
   // Sort if requested
-  const commentLines: string[] = [];
-  const entryLines: string[] = [];
   let sorted = false;
 
   if (options.sort) {
-    // Separate comments (first block) from entries
-    let inHeader = true;
+    // Group lines into blocks: each entry keeps its preceding comment(s)
+    const blocks: Array<{ sortKey: string; lines: string[] }> = [];
+    let currentComments: string[] = [];
+
     for (const line of fixedLines) {
-      if (line.startsWith("#") && inHeader) {
-        commentLines.push(line);
+      if (line.startsWith("#")) {
+        currentComments.push(line);
       } else {
-        inHeader = false;
-        entryLines.push(line);
+        const sortKey = line.split("=")[0];
+        blocks.push({ sortKey, lines: [...currentComments, line] });
+        currentComments = [];
       }
     }
-    entryLines.sort((a, b) => {
-      const keyA = a.split("=")[0];
-      const keyB = b.split("=")[0];
-      return keyA.localeCompare(keyB);
-    });
+
+    // If there are trailing comments with no following entry, keep them
+    if (currentComments.length > 0) {
+      blocks.push({ sortKey: "\uFFFF", lines: currentComments }); // sort to end
+    }
+
+    blocks.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+    fixedLines.length = 0;
+    for (const block of blocks) {
+      fixedLines.push(...block.lines);
+    }
     sorted = true;
   }
 
-  const finalLines = options.sort ? [...commentLines, ...entryLines] : fixedLines;
+  const finalLines = fixedLines;
   const output = finalLines.join("\n") + "\n";
 
   const rawOutputPath = options.output || envPath;
