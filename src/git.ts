@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 interface StatusFile {
   index: string;
   path: string;
+  working_dir?: string;
 }
 
 export class GitOperations {
@@ -108,16 +109,21 @@ export class GitOperations {
 
   /**
    * Check if file content still has conflict markers
+   * Checks for all conflict marker types at line start to avoid false positives
+   * from strings/comments that happen to contain marker-like text.
    */
   hasConflictMarkers(content: string): boolean {
-    return content.includes('<<<<<<<');
+    // Check for any of the four conflict marker types at line start
+    // <<<<<<< = ours, ======= = separator, >>>>>>> = theirs, ||||||| = base (diff3)
+    return /^(<<<<<<<|=======|>>>>>>>|\|\|\|\|\|\|\|)/m.test(content);
   }
 
   /**
    * Count conflict markers in content
    */
   countConflicts(content: string): number {
-    const matches = content.match(/<<<<<<<.+$/gm);
+    // Match <<<<<<< at line start with optional trailing text (including bare <<<<<<<)
+    const matches = content.match(/^<<<<<<<.*$/gm);
     return matches ? matches.length : 0;
   }
   /**
@@ -136,11 +142,18 @@ export class GitOperations {
 
   /**
    * Check if merge is in progress
+   * Checks for all unmerged status codes: UU, AA, DD, AU, UA, DU, UD
    */
   async isMergeInProgress(): Promise<boolean> {
     try {
       const status = await this.git.status();
-      return status.files.some((f: StatusFile) => f.index === 'U');
+      // Unmerged status codes: both modified (UU), both added (AA), both deleted (DD),
+      // added by us (AU), added by them (UA), deleted by us (DU), deleted by them (UD)
+      const unmergedCodes = new Set(['U', 'A', 'D']);
+      return status.files.some(
+        (f: StatusFile) =>
+          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir || '')
+      );
     } catch {
       return false;
     }

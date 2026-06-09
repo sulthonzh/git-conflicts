@@ -75,6 +75,23 @@ describe('GitOperations', () => {
     expect(gitOps.hasConflictMarkers(cleanContent)).toBe(false);
   });
 
+  it('should not false-positive on marker text inside strings', () => {
+    // A string literal or comment containing <<<<<<< should not be flagged
+    const contentWithString = 'const msg = "use <<<<<<< to mark conflicts";';
+    expect(gitOps.hasConflictMarkers(contentWithString)).toBe(false);
+  });
+
+  it('should detect diff3 conflict markers (|||||||)', () => {
+    const diff3Content = '||||||| merged common ancestors\nbase\n=======\nours\n>>>>>>> feature';
+    expect(gitOps.hasConflictMarkers(diff3Content)).toBe(true);
+  });
+
+  it('should detect remaining ======= and >>>>>>> markers', () => {
+    // User deleted <<<<<<< but left other markers
+    const partialMarkers = 'some code\n=======\ntheir code\n>>>>>>> feature\nend';
+    expect(gitOps.hasConflictMarkers(partialMarkers)).toBe(true);
+  });
+
   it('should count conflict markers correctly', () => {
     const singleConflict = 'some code\n<<<<<<< HEAD\nmy code\n=======\ntheir code\n>>>>>>> feature\nend';
     expect(gitOps.countConflicts(singleConflict)).toBe(1);
@@ -84,6 +101,11 @@ describe('GitOperations', () => {
 
     const cleanContent = 'no conflicts here';
     expect(gitOps.countConflicts(cleanContent)).toBe(0);
+  });
+
+  it('should count bare <<<<<<< lines without branch name', () => {
+    const bareMarker = 'some code\n<<<<<<<\nmy code\n=======\ntheir code\n>>>>>>> feature';
+    expect(gitOps.countConflicts(bareMarker)).toBe(1);
   });
 });
 
