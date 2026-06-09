@@ -20,9 +20,10 @@ program
   .option('-s, --status', 'Show conflict status only')
   .option('--stage', 'Auto-stage resolved files with git add')
   .option('-j, --json', 'Output in JSON format (for scripting/CI)')
+  .option('--cwd <path>', 'Path to git repository (defaults to current directory)')
   .action(async (options) => {
-    const gitOps = new GitOperations();
-    const resolver = new ConflictResolver();
+    const gitOps = new GitOperations(options.cwd);
+    const resolver = new ConflictResolver(gitOps);
 
     try {
       // Handle abort

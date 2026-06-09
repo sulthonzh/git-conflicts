@@ -116,6 +116,13 @@ describe('ConflictResolver', () => {
     resolver = new ConflictResolver();
   });
 
+  it('should accept a GitOperations instance', () => {
+    const customGitOps = new GitOperations('/some/path');
+    const customResolver = new ConflictResolver(customGitOps);
+    // Should not throw
+    expect(customResolver).toBeInstanceOf(ConflictResolver);
+  });
+
   it('should validate clean file content', async () => {
     const cleanContent = 'const x = 1;';
     (fs.readFile as jest.Mock).mockResolvedValue(cleanContent);

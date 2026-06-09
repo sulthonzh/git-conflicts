@@ -23,8 +23,6 @@ export class GitOperations {
    */
   async getConflictedFiles(): Promise<string[]> {
     try {
-      await this.git.status();
-
       const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
       const files = diffOutput
         .split('\n')
@@ -51,6 +49,16 @@ export class GitOperations {
   }
 
   /**
+   * Resolve the absolute .git directory path
+   */
+  private async getAbsoluteGitDir(): Promise<string> {
+    const gitDir = await this.git.revparse(['--git-dir']);
+    // revparse --git-dir can return relative paths like ".git"
+    const absolute = resolve(this.workingDir, gitDir.trim());
+    return absolute;
+  }
+
+  /**
    * Get merge conflict info (branches involved)
    * Attempts to read MERGE_HEAD and MERGE_MSG for better context
    */
@@ -59,10 +67,11 @@ export class GitOperations {
     let merging: string | undefined;
     let mergeMessage: string | undefined;
 
+    const gitDir = await this.getAbsoluteGitDir();
+
     // Try to read .git/MERGE_MSG for merge context
     try {
-      const gitDir = await this.git.revparse(['--git-dir']);
-      const mergeMsgPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_MSG');
+      const mergeMsgPath = resolve(gitDir, 'MERGE_MSG');
       if (existsSync(mergeMsgPath)) {
         const msg = await readFile(mergeMsgPath, 'utf-8');
         // Extract branch name from "Merge branch 'xyz'"
@@ -79,8 +88,7 @@ export class GitOperations {
     // Try to read .git/MERGE_HEAD for the commit being merged
     if (!merging) {
       try {
-        const gitDir = await this.git.revparse(['--git-dir']);
-        const mergeHeadPath = resolve(this.workingDir, gitDir.trim(), 'MERGE_HEAD');
+        const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
         if (existsSync(mergeHeadPath)) {
           const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
           // Get short ref name for the SHA
@@ -90,6 +98,20 @@ export class GitOperations {
           } catch {
             merging = sha.substring(0, 7);
           }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // During rebase, check rebase-merge directory for branch info
+    if (!merging) {
+      try {
+        const headNamePath = resolve(gitDir, 'rebase-merge', 'head-name');
+        if (existsSync(headNamePath)) {
+          const headName = (await readFile(headNamePath, 'utf-8')).trim();
+          // head-name is typically "refs/heads/branch-name"
+          merging = headName.replace(/^refs\/heads\//, '');
         }
       } catch {
         // ignore
@@ -141,8 +163,9 @@ export class GitOperations {
   }
 
   /**
-   * Check if merge is in progress
+   * Check if merge or rebase is in progress
    * Checks for all unmerged status codes: UU, AA, DD, AU, UA, DU, UD
+   * Also detects rebase conflicts via .git/rebase-merge directory
    */
   async isMergeInProgress(): Promise<boolean> {
     try {
@@ -150,10 +173,29 @@ export class GitOperations {
       // Unmerged status codes: both modified (UU), both added (AA), both deleted (DD),
       // added by us (AU), added by them (UA), deleted by us (DU), deleted by them (UD)
       const unmergedCodes = new Set(['U', 'A', 'D']);
-      return status.files.some(
+      const hasUnmergedFiles = status.files.some(
         (f: StatusFile) =>
           unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir || '')
       );
+
+      if (hasUnmergedFiles) {
+        return true;
+      }
+
+      // Check for rebase in progress (no MERGE_HEAD, but rebase-merge dir exists)
+      const gitDir = await this.getAbsoluteGitDir();
+      const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
+      if (existsSync(rebaseMergeDir)) {
+        return true;
+      }
+
+      // Check for cherry-pick in progress
+      const cherryPickHead = resolve(gitDir, 'CHERRY_PICK_HEAD');
+      if (existsSync(cherryPickHead)) {
+        return true;
+      }
+
+      return false;
     } catch {
       return false;
     }
