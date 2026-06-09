@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 dist/
 *.tgz
@@ -9,3 +10,37 @@ coverage/
 # But keep test fixtures
 !tests/fixtures/.env
 mydatabase.db
+=======
+# dependencies
+node_modules/
+
+# build
+dist/
+compiled/
+
+# env
+.env
+.env.local
+!.env.example
+
+# cache
+.zig-cache/
+.openclaw/
+.omo/
+.playwright-mcp/
+
+# os
+.DS_Store
+Thumbs.db
+
+# ide
+.vscode/
+.idea/
+
+# logs
+*.log
+
+# temporary
+tmp/
+temp/
+>>>>>>> e2d595c1 (fix: remove nested repo copies, cache files, and add .gitignore)
