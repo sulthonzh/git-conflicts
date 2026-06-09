@@ -18,8 +18,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "node --test tests/standalone.test.mjs",
+    "test:watch": "node --test --watch tests/standalone.test.mjs",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build",
     "test:standalone": "node --test tests/standalone.test.mjs"
