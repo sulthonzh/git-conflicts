@@ -14,43 +14,6 @@ export class ConflictResolver {
    * Parse editor command string into command and args array.
    * Handles editors with flags like "code --wait" or "vim -c 'set diff'"
    */
-  private parseEditorCommand(editorString: string): { command: string; args: string[] } {
-    // Simple shell-like parsing: split on whitespace, respect basic quoting
-    const parts: string[] = [];
-    let current = '';
-    let inQuote = false;
-    let quoteChar = '';
-
-    for (const ch of editorString) {
-      if (inQuote) {
-        if (ch === quoteChar) {
-          inQuote = false;
-        } else {
-          current += ch;
-        }
-      } else if (ch === '"' || ch === "'") {
-        inQuote = true;
-        quoteChar = ch;
-      } else if (ch === ' ' || ch === '\t') {
-        if (current.length > 0) {
-          parts.push(current);
-          current = '';
-        }
-      } else {
-        current += ch;
-      }
-    }
-    if (current.length > 0) {
-      parts.push(current);
-    }
-
-    if (parts.length === 0) {
-      return { command: editorString, args: [] };
-    }
-
-    return { command: parts[0], args: parts.slice(1) };
-  }
-
   /**
    * Parse editor command string into command and args array.
    * Handles editors with flags like "code --wait" or "vim -c 'set diff'"
