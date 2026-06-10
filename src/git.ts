@@ -1,12 +1,20 @@
-import simpleGit, { SimpleGit } from 'simple-git';
+import simpleGit, { SimpleGit, StatusResult, StatusFile } from 'simple-git';
 import { resolve } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
-interface StatusFile {
-  index: string;
+// Extended interface for better type safety
+interface ExtendedStatusFile extends StatusFile {
   path: string;
-  working_dir?: string;
+  index: string;
+  working_dir: string;
+  type?: 'M' | 'A' | 'D' | 'R' | 'C' | 'U';
+}
+
+interface GitOperationError extends Error {
+  message: string;
+  code?: string;
+  syscall?: string;
 }
 
 export class GitOperations {
@@ -29,14 +37,22 @@ export class GitOperations {
         .map((f: string) => f.trim())
         .filter((f: string) => f.length > 0);
 
+      if (!Array.isArray(files)) {
+        throw new Error('Invalid diff output format');
+      }
+
       return files;
     } catch (error) {
       if (error instanceof Error) {
         if (error.message.includes('not a git repository')) {
           throw new Error('Not a git repository');
         }
+        if (error.message.includes('bad revision')) {
+          throw new Error('Invalid git revision');
+        }
+        throw new Error(`Failed to get conflicted files: ${error.message}`);
       }
-      throw error;
+      throw new Error('Unknown error while getting conflicted files');
     }
   }
 
@@ -181,34 +197,11 @@ export class GitOperations {
    */
   async isMergeInProgress(): Promise<boolean> {
     try {
-      const status = await this.git.status();
-      // Unmerged status codes: both modified (UU), both added (AA), both deleted (DD),
-      // added by us (AU), added by them (UA), deleted by us (DU), deleted by them (UD)
-      const unmergedCodes = new Set(['U', 'A', 'D']);
-      const hasUnmergedFiles = status.files.some(
-        (f: StatusFile) =>
-          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir || '')
-      );
-
-      if (hasUnmergedFiles) {
-        return true;
-      }
-
-      // Check for rebase in progress (no MERGE_HEAD, but rebase-merge dir exists)
-      const gitDir = await this.getAbsoluteGitDir();
-      const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
-      if (existsSync(rebaseMergeDir)) {
-        return true;
-      }
-
-      // Check for cherry-pick in progress
-      const cherryPickHead = resolve(gitDir, 'CHERRY_PICK_HEAD');
-      if (existsSync(cherryPickHead)) {
-        return true;
-      }
-
-      return false;
+      const mergeState = await this.getMergeState();
+      return mergeState !== 'none' && mergeState !== 'unknown';
     } catch {
+      // If we can't determine merge state, assume it's not in progress
+      // to avoid false positives
       return false;
     }
   }
@@ -256,15 +249,26 @@ export class GitOperations {
     branch: string;
     merging?: string;
     mergeMessage?: string;
+    mergeState: 'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown';
   }> {
-    const files = await this.getConflictedFiles();
-    const info = await this.getMergeInfo();
-    return {
-      hasConflicts: files.length > 0,
-      files,
-      branch: info.current,
-      merging: info.merging,
-      mergeMessage: info.mergeMessage,
-    };
+    try {
+      const files = await this.getConflictedFiles();
+      const info = await this.getMergeInfo();
+      const mergeState = await this.getMergeState();
+      
+      return {
+        hasConflicts: files.length > 0,
+        files,
+        branch: info.current,
+        merging: info.merging,
+        mergeMessage: info.mergeMessage,
+        mergeState,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to get conflict status: ${error.message}`);
+      }
+      throw new Error('Unknown error while getting conflict status');
+    }
   }
 }

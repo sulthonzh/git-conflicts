@@ -2,10 +2,19 @@ import { GitOperations } from '../src/git';
 import { ProgressTracker } from '../src/progress';
 import { ConflictResolver } from '../src/resolver';
 import * as fs from 'fs/promises';
+import * as path from 'path';
 
 jest.mock('simple-git');
 jest.mock('child_process');
 jest.mock('fs/promises');
+
+// Mock existsSync - we'll use the actual fs module and mock its existsSync
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  existsSync: jest.fn()
+}));
+
+const mockExistsSync = (require('fs') as any).existsSync;
 
 describe('ProgressTracker', () => {
   it('should initialize with correct total', () => {
@@ -114,6 +123,11 @@ describe('ConflictResolver', () => {
 
   beforeEach(() => {
     resolver = new ConflictResolver();
+    mockExistsSync.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    mockExistsSync.mockClear();
   });
 
   it('should accept a GitOperations instance', () => {
@@ -126,6 +140,13 @@ describe('ConflictResolver', () => {
   it('should validate clean file content', async () => {
     const cleanContent = 'const x = 1;';
     (fs.readFile as jest.Mock).mockResolvedValue(cleanContent);
+    
+    // Mock stat to return a small file
+    const mockStat = jest.fn().mockResolvedValue({ size: 100 });
+    jest.mock('fs/promises', () => ({
+      ...jest.requireActual('fs/promises'),
+      stat: mockStat
+    }));
 
     const result = await resolver.validateResolution('test.ts');
     expect(result.valid).toBe(true);
@@ -142,10 +163,19 @@ describe('ConflictResolver', () => {
   });
 
   it('should handle read errors during validation', async () => {
+    mockExistsSync.mockReturnValue(true);
     (fs.readFile as jest.Mock).mockRejectedValue(new Error('File not found'));
 
     const result = await resolver.validateResolution('nonexistent.ts');
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('Failed to read file');
+  });
+
+  it('should handle missing files', async () => {
+    mockExistsSync.mockReturnValue(false);
+
+    const result = await resolver.validateResolution('nonexistent.ts');
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('File does not exist');
   });
 });
