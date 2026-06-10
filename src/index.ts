@@ -7,6 +7,7 @@ import { runInit } from "./commands/init.js";
 import { runValidate } from "./commands/validate.js";
 import { runFix } from "./commands/fix.js";
 import { runLint } from "./commands/lint.js";
+import { runSummary } from "./commands/summary.js";
 
 const program = new Command();
 
@@ -134,6 +135,27 @@ program
     try {
       const result = runLint(resolve(env), { json: opts.json, strict: opts.strict });
       process.exit(result.clean ? 0 : 1);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`Error: ${message}\n`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("summary")
+  .description("Health overview: lint + secrets + validation in one report")
+  .argument("[env]", "path to .env file", ".env")
+  .argument("[example]", "path to .env.example file (optional)")
+  .option("--json", "output as JSON")
+  .option("--markdown", "output as markdown table")
+  .action((env, example, opts) => {
+    try {
+      const result = runSummary(resolve(env), example ? resolve(example) : undefined, {
+        json: opts.json,
+        markdown: opts.markdown,
+      });
+      process.exit(result.health === "critical" ? 1 : 0);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       process.stderr.write(`Error: ${message}\n`);

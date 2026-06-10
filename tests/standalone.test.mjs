@@ -286,12 +286,12 @@ describe("runCheck", () => {
 // --- Secrets Scanner Tests ---
 describe("scanContent", () => {
   it("detects AWS access key pattern", () => {
-    const result = scanContent("AWS_KEY=REDACTED_AWS_EXAMPLE");
+    const result = scanContent("AWS_KEY=AKIA1234567890ABCDEF");
     assert.equal(result.hasSecrets, true);
   });
 
   it("detects GitHub token", () => {
-    const result = scanContent("TOKEN=REDACTED_GH_TOKEN");
+    const result = scanContent("TOKEN=ghp_1234567890abcdefghijklmnopqrstuv");
     assert.equal(result.hasSecrets, true);
   });
 
@@ -301,7 +301,7 @@ describe("scanContent", () => {
   });
 
   it("detects private key", () => {
-    const result = scanContent("KEY=REDACTED_PEM_BEGIN\nabc123\n");
+    const result = scanContent("KEY=-----BEGIN RSA PRIVATE KEY-----\nabc123\n");
     assert.equal(result.hasSecrets, true);
   });
 
@@ -321,10 +321,10 @@ describe("scanContent", () => {
   });
 
   it("redacts matched values", () => {
-    const result = scanContent("AWS_KEY=REDACTED_AWS_EXAMPLE");
+    const result = scanContent("AWS_KEY=AKIA1234567890ABCDEF");
     assert.ok(result.secrets.length > 0);
     assert.ok(result.secrets[0].redacted.includes("..."));
-    assert.ok(!result.secrets[0].redacted.includes("REDACTED_AWS_EXAMPLE"));
+    assert.ok(!result.secrets[0].redacted.includes("AKIA1234567890ABCDEF"));
   });
 
   it("throws on empty content", () => {
@@ -334,7 +334,7 @@ describe("scanContent", () => {
 
 describe("quickScan", () => {
   it("finds critical severity secrets", () => {
-    const result = quickScan("AWS_KEY=REDACTED_AWS_EXAMPLE");
+    const result = quickScan("AWS_KEY=AKIA1234567890ABCDEF");
     assert.equal(result.hasSecrets, true);
   });
 
@@ -448,6 +448,54 @@ describe("runFix", () => {
     const examplePath = writeTmp(".env.example", "A=2\nZ=1\n");
     const result = runFix(envPath, examplePath, { sort: true, dryRun: true });
     assert.equal(result.sorted, true);
+    cleanup();
+  });
+});
+
+// --- Summary Tests ---
+const { runSummary } = await import("../src/commands/summary.ts");
+
+describe("runSummary", () => {
+  it("reports healthy for clean env", () => {
+    const envPath = writeTmp("sum1.env", "APP_NAME=myapp\nPORT=3000\nDEBUG=true\n");
+    const result = runSummary(envPath, undefined, { json: false });
+    assert.equal(result.health, "healthy");
+    assert.equal(result.totalKeys, 3);
+    assert.equal(result.secretsFound, 0);
+    cleanup();
+  });
+
+  it("reports critical when secrets found", () => {
+    const envPath = writeTmp("sum2.env", "AWS_KEY=AKIA1234567890ABCDEF\nAPP=myapp\n");
+    const result = runSummary(envPath, undefined, { json: false });
+    assert.equal(result.health, "critical");
+    assert.equal(result.secretsFound, 1);
+    assert.ok(result.secretDetails[0].pattern.includes("AWS"));
+    cleanup();
+  });
+
+  it("reports warning for empty values and lint issues", () => {
+    const envPath = writeTmp("sum3.env", "KEY=one\nKEY=two\nEMPTY=\n");
+    const result = runSummary(envPath, undefined, { json: false });
+    assert.equal(result.health, "warning");
+    assert.ok(result.emptyValues >= 1);
+    assert.ok(result.duplicateKeys >= 1);
+    cleanup();
+  });
+
+  it("json output includes all fields", () => {
+    const envPath = writeTmp("sum4.env", "A=1\nB=2\n");
+    const result = runSummary(envPath, undefined, { json: true });
+    assert.equal(typeof result.file, "string");
+    assert.equal(result.totalKeys, 2);
+    assert.equal(result.health, "healthy");
+    cleanup();
+  });
+
+  it("markdown output works", () => {
+    const envPath = writeTmp("sum5.env", "A=1\nB=2\n");
+    const result = runSummary(envPath, undefined, { markdown: true });
+    assert.equal(result.totalKeys, 2);
     cleanup();
   });
 });
