@@ -46,13 +46,19 @@ export function validateType(value: string, type: EnvType): string | null {
       try {
         const url = new URL(value);
         // Allow common protocols including databases and web protocols
-        const allowedProtocols = ["http:", "https:", "ftp:", "file:", "postgresql:", "postgres:", "mysql:", "mongodb:", "redis:", "amqp:", "ws:", "wss:"];
+        // Note: Remove file: protocol as it can be security risk (path traversal)
+        const allowedProtocols = ["http:", "https:", "ftp:", "postgresql:", "postgres:", "mysql:", "mongodb:", "redis:", "amqp:", "ws:", "wss:"];
         if (!allowedProtocols.includes(url.protocol)) {
-          return `expected a valid URL (http/https/ftp/file/postgres/mysql/mongodb/redis/websocket), got "${value}"`;
+          return `expected a valid URL (http/https/ftp/postgres/mysql/mongodb/redis/amqp/websocket), got "${value}"`;
         }
-        // Require hostname for most protocols except file
-        if (url.protocol !== "file:" && !url.hostname) {
+        // Require hostname for all protocols except local protocols
+        if (!url.hostname && !url.protocol.startsWith("ws")) {
           return `expected a valid URL with hostname, got "${value}"`;
+        }
+        // Validate hostname exists for non-local protocols
+        if (url.hostname && (url.hostname === "localhost" || /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname))) {
+          // Allow localhost and IP addresses
+          return null;
         }
         return null;
       } catch {

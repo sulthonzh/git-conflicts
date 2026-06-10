@@ -101,4 +101,34 @@ export const SECRET_PATTERNS: SecretPattern[] = [
     severity: "high",
     description: "Slack webhook secret",
   },
+  {
+    name: "Docker Registry Credentials",
+    pattern: /(?:docker[_-]?registry|registry[_-]?token|docker[_-]?username)\s*[=:]\s*['"]?(?:[A-Za-z0-9_\-.]+|_[A-Za-z0-9_\-.]+)(?::[A-Za-z0-9_\-.]+)?['"]?/i,
+    severity: "critical",
+    description: "Docker registry username and token",
+  },
+  {
+    name: "Heroku API Key",
+    pattern: /heroku.*[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}/i,
+    severity: "critical",
+    description: "Heroku API key",
+  },
+  {
+    name: "Twilio API Key",
+    pattern: /SK[0-9a-fA-F]{32}/,
+    severity: "critical",
+    description: "Twilio API key",
+  },
+  {
+    name: "Azure Connection String",
+    pattern: /DefaultEndpointsProtocol=[^;]+;AccountName=[^;]+;AccountKey=[^;]+/i,
+    severity: "critical",
+    description: "Azure storage account connection string",
+  },
+  {
+    name: "Cloudflare API Token",
+    pattern: /api[_-]?key[_-]?global|api[_-]?key[_-]?read[_-]?only|api[_-]?key[_-]?write[_-]?only\s*[=:]\s*['"]?[a-z0-9]{37}['"]?/i,
+    severity: "critical",
+    description: "Cloudflare API token",
+  },
 ];

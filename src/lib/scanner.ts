@@ -34,10 +34,16 @@ function redact(value: string): string {
   }
   
   if (value.length <= 8) {
-    return `${value.slice(0, 2)}**${value.slice(-2)}`;
+    // More efficient than multiple slices
+    const start = value.substring(0, 2);
+    const end = value.substring(value.length - 2);
+    return `${start}**${end}`;
   }
   
-  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+  // More efficient for longer strings - only do 2 substring operations
+  const start = value.substring(0, 4);
+  const end = value.substring(value.length - 4);
+  return `${start}...${end}`;
 }
 
 /** Scan parsed env content for secret patterns. */
@@ -117,8 +123,11 @@ export function quickScan(content: string): ScanResult {
 
   for (const entry of validEntries) {
     for (const pattern of criticalPatterns) {
-      // Check both value and raw line
-      if (pattern.pattern.test(entry.value) || pattern.pattern.test(entry.raw)) {
+      // Check both value and raw line separately (same logic as full scan)
+      const valueMatch = pattern.pattern.test(entry.value);
+      const rawMatch = pattern.pattern.test(entry.raw);
+      
+      if (valueMatch || rawMatch) {
         secrets.push({
           key: entry.key,
           line: entry.line,

@@ -93,6 +93,11 @@ function stripBOM(content: string): string {
  * Parse a .env file content into structured entries.
  */
 export function parseEnvContent(content: string): ParsedEnv {
+  // Validate input size to prevent DoS attacks
+  if (content && content.length > 1024 * 1024) { // 1MB limit
+    throw new Error("Content too large (max 1MB)");
+  }
+  
   const raw = stripBOM(content);
   const lines = raw.split(/\r?\n/);
   const entries: EnvEntry[] = [];
@@ -126,17 +131,26 @@ export function parseEnvContent(content: string): ParsedEnv {
     // Parse key=value
     const equalIndex = cleaned.indexOf("=");
     if (equalIndex === -1) {
-      // Key without value — treat as empty
-      entries.push({
-        key: cleaned.trim(),
-        value: "",
-        line: lineNumber,
-        raw: line,
-      });
+      // Key without value — treat as empty, but validate key name
+      const key = cleaned.trim();
+      if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+        entries.push({
+          key,
+          value: "",
+          line: lineNumber,
+          raw: line,
+        });
+      }
       continue;
     }
 
     const key = cleaned.slice(0, equalIndex).trim();
+    // Validate key name (must be valid identifier)
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      // Skip invalid entries but continue processing
+      continue;
+    }
+    
     let value = cleaned.slice(equalIndex + 1);
 
     // Handle quoted values
@@ -147,14 +161,16 @@ export function parseEnvContent(content: string): ParsedEnv {
       quoteChar = value[0];
       value = value.slice(1, -1);
 
-      // Unescape basic sequences in double quotes
+      // Enhanced unescape with protection against escape sequence injection
       if (quoteChar === '"') {
         value = value
           .replace(/\\n/g, "\n")
           .replace(/\\r/g, "\r")
           .replace(/\\t/g, "\t")
           .replace(/\\\\/g, "\\")
-          .replace(/\\"/g, '"');
+          .replace(/\\"/g, '"')
+          // Remove other escape sequences that could be dangerous
+          .replace(/\\[a-zA-Z]/g, '');
       }
     } else {
       // Unquoted: strip inline comment
