@@ -152,7 +152,19 @@ export class GitOperations {
    * Abort current merge
    */
   async abortMerge(): Promise<void> {
-    await this.git.merge(['--abort']);
+    try {
+      await this.git.merge(['--abort']);
+    } catch (error) {
+      if (error instanceof Error) {
+        // Not in a merge state - this is a normal condition
+        throw new Error(
+          error.message.includes('not a merge')
+            ? 'Not in a merge state'
+            : error.message
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -198,6 +210,40 @@ export class GitOperations {
       return false;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Check if we're in a merge or rebase state
+   * Returns a more specific status for better error messages
+   */
+  async getMergeState(): Promise<'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown'> {
+    try {
+      const status = await this.git.status();
+      const unmergedCodes = new Set(['U', 'A', 'D']);
+      const hasUnmergedFiles = status.files.some(
+        (f: StatusFile) =>
+          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir || '')
+      );
+
+      if (hasUnmergedFiles) {
+        return 'merge';
+      }
+
+      const gitDir = await this.getAbsoluteGitDir();
+      const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
+      if (existsSync(rebaseMergeDir)) {
+        return 'rebase';
+      }
+
+      const cherryPickHead = resolve(gitDir, 'CHERRY_PICK_HEAD');
+      if (existsSync(cherryPickHead)) {
+        return 'cherry-pick';
+      }
+
+      return 'none';
+    } catch {
+      return 'unknown';
     }
   }
 
