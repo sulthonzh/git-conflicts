@@ -75,25 +75,21 @@ describe('GitOperations', () => {
     expect(gitOps.hasConflictMarkers(cleanContent)).toBe(false);
   });
 
-  it('should detect orphan ======= as conflict marker', () => {
-    // Partially edited file: <<<<<<< removed but ======= remains
-    const orphaned = 'some code\n=======\ntheir code\n>>>>>>> feature\nend';
-    expect(gitOps.hasConflictMarkers(orphaned)).toBe(true);
+  it('should not false-positive on marker text inside strings', () => {
+    // A string literal or comment containing <<<<<<< should not be flagged
+    const contentWithString = 'const msg = "use <<<<<<< to mark conflicts";';
+    expect(gitOps.hasConflictMarkers(contentWithString)).toBe(false);
   });
 
-  it('should detect orphan >>>>>>> as conflict marker', () => {
-    const orphaned = 'some code\n>>>>>>> feature\nend';
-    expect(gitOps.hasConflictMarkers(orphaned)).toBe(true);
+  it('should detect diff3 conflict markers (|||||||)', () => {
+    const diff3Content = '||||||| merged common ancestors\nbase\n=======\nours\n>>>>>>> feature';
+    expect(gitOps.hasConflictMarkers(diff3Content)).toBe(true);
   });
 
-  it('should detect diff3 ||||||| markers', () => {
-    const diff3 = '<<<<<<< HEAD\nmy code\n||||||| merged common\nbase\n=======\ntheir code\n>>>>>>> feature';
-    expect(gitOps.hasConflictMarkers(diff3)).toBe(true);
-  });
-
-  it('should not false-positive on strings containing marker text', () => {
-    const notAMarker = 'console.log("<<<<<<< this is just a string")';
-    expect(gitOps.hasConflictMarkers(notAMarker)).toBe(false);
+  it('should detect remaining ======= and >>>>>>> markers', () => {
+    // User deleted <<<<<<< but left other markers
+    const partialMarkers = 'some code\n=======\ntheir code\n>>>>>>> feature\nend';
+    expect(gitOps.hasConflictMarkers(partialMarkers)).toBe(true);
   });
 
   it('should count conflict markers correctly', () => {
@@ -106,6 +102,11 @@ describe('GitOperations', () => {
     const cleanContent = 'no conflicts here';
     expect(gitOps.countConflicts(cleanContent)).toBe(0);
   });
+
+  it('should count bare <<<<<<< lines without branch name', () => {
+    const bareMarker = 'some code\n<<<<<<<\nmy code\n=======\ntheir code\n>>>>>>> feature';
+    expect(gitOps.countConflicts(bareMarker)).toBe(1);
+  });
 });
 
 describe('ConflictResolver', () => {
@@ -113,6 +114,13 @@ describe('ConflictResolver', () => {
 
   beforeEach(() => {
     resolver = new ConflictResolver();
+  });
+
+  it('should accept a GitOperations instance', () => {
+    const customGitOps = new GitOperations('/some/path');
+    const customResolver = new ConflictResolver(customGitOps);
+    // Should not throw
+    expect(customResolver).toBeInstanceOf(ConflictResolver);
   });
 
   it('should validate clean file content', async () => {

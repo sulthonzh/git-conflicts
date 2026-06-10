@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 interface StatusFile {
   index: string;
   path: string;
+  working_dir?: string;
 }
 
 export class GitOperations {
@@ -22,8 +23,6 @@ export class GitOperations {
    */
   async getConflictedFiles(): Promise<string[]> {
     try {
-      await this.git.status();
-
       const diffOutput = await this.git.diff(['--name-only', '--diff-filter=U']);
       const files = diffOutput
         .split('\n')
@@ -50,6 +49,16 @@ export class GitOperations {
   }
 
   /**
+   * Resolve the absolute .git directory path
+   */
+  private async getAbsoluteGitDir(): Promise<string> {
+    const gitDir = await this.git.revparse(['--git-dir']);
+    // revparse --git-dir can return relative paths like ".git"
+    const absolute = resolve(this.workingDir, gitDir.trim());
+    return absolute;
+  }
+
+  /**
    * Get merge conflict info (branches involved)
    * Attempts to read MERGE_HEAD and MERGE_MSG for better context
    */
@@ -58,12 +67,11 @@ export class GitOperations {
     let merging: string | undefined;
     let mergeMessage: string | undefined;
 
+    const gitDir = await this.getAbsoluteGitDir();
+
     // Try to read .git/MERGE_MSG for merge context
     try {
-      const gitDir = await this.git.revparse(['--git-dir']);
-      // gitDir can be relative (e.g. ".git") — resolve relative to workingDir
-      const absoluteGitDir = resolve(this.workingDir, gitDir.trim());
-      const mergeMsgPath = resolve(absoluteGitDir, 'MERGE_MSG');
+      const mergeMsgPath = resolve(gitDir, 'MERGE_MSG');
       if (existsSync(mergeMsgPath)) {
         const msg = await readFile(mergeMsgPath, 'utf-8');
         // Extract branch name from "Merge branch 'xyz'"
@@ -80,9 +88,7 @@ export class GitOperations {
     // Try to read .git/MERGE_HEAD for the commit being merged
     if (!merging) {
       try {
-        const gitDir = await this.git.revparse(['--git-dir']);
-        const absoluteGitDir = resolve(this.workingDir, gitDir.trim());
-        const mergeHeadPath = resolve(absoluteGitDir, 'MERGE_HEAD');
+        const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
         if (existsSync(mergeHeadPath)) {
           const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
           // Get short ref name for the SHA
@@ -92,6 +98,20 @@ export class GitOperations {
           } catch {
             merging = sha.substring(0, 7);
           }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // During rebase, check rebase-merge directory for branch info
+    if (!merging) {
+      try {
+        const headNamePath = resolve(gitDir, 'rebase-merge', 'head-name');
+        if (existsSync(headNamePath)) {
+          const headName = (await readFile(headNamePath, 'utf-8')).trim();
+          // head-name is typically "refs/heads/branch-name"
+          merging = headName.replace(/^refs\/heads\//, '');
         }
       } catch {
         // ignore
@@ -110,29 +130,23 @@ export class GitOperations {
   }
 
   /**
-   * Check if file content still has conflict markers.
-   * Checks for all marker types including diff3 style (|||||||).
-   * A partially-edited file might have orphan ======= or >>>>>>> markers
-   * without a matching <<<<<<<, so we check all of them.
+   * Check if file content still has conflict markers
+   * Checks for all conflict marker types at line start to avoid false positives
+   * from strings/comments that happen to contain marker-like text.
    */
   hasConflictMarkers(content: string): boolean {
-    // Check line-by-line at line start to avoid false positives from strings
-    const lines = content.split('\n');
-    return lines.some(line =>
-      /^<{7}\s/.test(line) ||
-      /^={7}$/.test(line) ||
-      /^>{7}\s/.test(line) ||
-      /^\|{7}\s/.test(line)
-    );
+    // Check for any of the four conflict marker types at line start
+    // <<<<<<< = ours, ======= = separator, >>>>>>> = theirs, ||||||| = base (diff3)
+    return /^(<<<<<<<|=======|>>>>>>>|\|\|\|\|\|\|\|)/m.test(content);
   }
 
   /**
-   * Count conflict markers in content.
-   * Counts <<<<<<< markers (each one starts a conflict block).
+   * Count conflict markers in content
    */
   countConflicts(content: string): number {
-    const lines = content.split('\n');
-    return lines.filter(line => /^<{7}\s/.test(line)).length;
+    // Match <<<<<<< at line start with optional trailing text (including bare <<<<<<<)
+    const matches = content.match(/^<<<<<<<.*$/gm);
+    return matches ? matches.length : 0;
   }
   /**
    * Abort current merge
@@ -149,12 +163,39 @@ export class GitOperations {
   }
 
   /**
-   * Check if merge is in progress
+   * Check if merge or rebase is in progress
+   * Checks for all unmerged status codes: UU, AA, DD, AU, UA, DU, UD
+   * Also detects rebase conflicts via .git/rebase-merge directory
    */
   async isMergeInProgress(): Promise<boolean> {
     try {
       const status = await this.git.status();
-      return status.files.some((f: StatusFile) => f.index === 'U');
+      // Unmerged status codes: both modified (UU), both added (AA), both deleted (DD),
+      // added by us (AU), added by them (UA), deleted by us (DU), deleted by them (UD)
+      const unmergedCodes = new Set(['U', 'A', 'D']);
+      const hasUnmergedFiles = status.files.some(
+        (f: StatusFile) =>
+          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir || '')
+      );
+
+      if (hasUnmergedFiles) {
+        return true;
+      }
+
+      // Check for rebase in progress (no MERGE_HEAD, but rebase-merge dir exists)
+      const gitDir = await this.getAbsoluteGitDir();
+      const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
+      if (existsSync(rebaseMergeDir)) {
+        return true;
+      }
+
+      // Check for cherry-pick in progress
+      const cherryPickHead = resolve(gitDir, 'CHERRY_PICK_HEAD');
+      if (existsSync(cherryPickHead)) {
+        return true;
+      }
+
+      return false;
     } catch {
       return false;
     }
