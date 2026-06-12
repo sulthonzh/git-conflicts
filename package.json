@@ -25,6 +25,8 @@
     "test:standalone": "node --test tests/standalone.test.mjs"
   },
   "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
     "commander": "^13.1.0"
   },
   "devDependencies": {
