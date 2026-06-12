@@ -1,6 +1,11 @@
 # OSS Builder Tracker
 
 ## Shipped
+- [x] **git-metrics** (2026-06-13) — Git repo contributor metrics, bus factor, code churn, file ownership, commit timeline. 49 tests, zero deps.
+- [x] **license-audit** (2026-06-13) — Scan npm deps for license compliance. 6 categories, policy engine, CI mode, JSON output. 37 tests, zero deps.
+- [x] **depgraph-viz** (2026-06-13) — Visualize npm dependency trees as ASCII or SVG. Lockfile-aware, duplicate detection, stats. 36 tests, zero deps.
+- [x] **readme-doctor** (2026-06-12) — Diagnose and score README.md. 12 health checks, letter grades A-F, CI mode, zero deps, 25 tests.
+- [x] **npmsiz** (2026-06-12) — Analyze npm package bloat before publish. Extension breakdown, bar charts, bloat detection. 30 tests, zero deps.
 - [x] **configdiff** (2026-06-12) — Semantic diff for config files (JSON/YAML/TOML). Cross-format comparison, 50 tests, zero deps.
 - [x] **cronexpr** (2026-06-12) — Parse and validate cron expressions. Next run times, human descriptions, CLI. 25 tests, zero deps.
 - [x] **envcheck** (2026-06-12) — Validate .env files against a schema. 7 types, strict mode, CLI, zero deps. 47 tests.
@@ -13,6 +18,5 @@
 
 ## Ideas / Backlog
 - [ ] `skillguard` — Validate AI skill definitions
-- [ ] `depgraph-viz` — Visualize dependency graph as ASCII/SVG
-- [ ] `configdiff` — Semantic diff for config files (JSON/YAML/TOML)
-- [ ] `npmsiz` — Analyze what's bloating your package before publish
+- [ ] `tsdown` — Analyze TypeScript compilation time per file
+- [x] **deadcode-hunter** (2026-06-13) — Find unused JS/TS exports. Named/default, export lists, CJS require, dynamic import, re-exports. 39 tests, zero deps.

@@ -1,27 +1,18 @@
-<<<<<<< HEAD
-node_modules/
-dist/
-*.tgz
-.DS_Store
-coverage/
-.env
-.env.local
-.env.*.local
-# But keep test fixtures
-!tests/fixtures/.env
-mydatabase.db
-=======
 # dependencies
 node_modules/
 
 # build
 dist/
 compiled/
+*.tgz
 
 # env
 .env
 .env.local
+.env.*.local
 !.env.example
+# But keep test fixtures
+!tests/fixtures/.env
 
 # cache
 .zig-cache/
@@ -43,4 +34,9 @@ Thumbs.db
 # temporary
 tmp/
 temp/
->>>>>>> e2d595c1 (fix: remove nested repo copies, cache files, and add .gitignore)
+
+# database
+mydatabase.db
+
+# test
+coverage/
