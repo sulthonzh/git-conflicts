@@ -67,62 +67,71 @@ export class GitOperations {
    * Attempts to read MERGE_HEAD and MERGE_MSG for better context
    */
   async getMergeInfo(): Promise<{ current: string; merging?: string; mergeMessage?: string }> {
-    const current = await this.getCurrentBranch();
-    let merging: string | undefined;
-    let mergeMessage: string | undefined;
-
-    const gitDir = await this.getAbsoluteGitDir();
-
-    // Try to read .git/MERGE_MSG for merge context
     try {
-      const mergeMsgPath = resolve(gitDir, 'MERGE_MSG');
-      if (existsSync(mergeMsgPath)) {
-        const msg = await readFile(mergeMsgPath, 'utf-8');
-        // Extract branch name from "Merge branch 'xyz'"
-        const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
-        if (match) {
-          merging = match[1];
-        }
-        mergeMessage = msg.split('\n')[0].trim();
-      }
-    } catch {
-      // MERGE_MSG might not exist during rebase or cherry-pick
-    }
+      const current = await this.getCurrentBranch();
+      let merging: string | undefined;
+      let mergeMessage: string | undefined;
 
-    // Try to read .git/MERGE_HEAD for the commit being merged
-    if (!merging) {
+      const gitDir = await this.getAbsoluteGitDir();
+
+      // Try to read .git/MERGE_MSG for merge context
       try {
-        const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
-        if (existsSync(mergeHeadPath)) {
-          const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
-          // Get short ref name for the SHA
-          try {
-            const name = await this.git.raw(['name-rev', '--name-only', sha]);
-            merging = name.trim() || sha.substring(0, 7);
-          } catch {
-            merging = sha.substring(0, 7);
+        const mergeMsgPath = resolve(gitDir, 'MERGE_MSG');
+        if (existsSync(mergeMsgPath)) {
+          const msg = await readFile(mergeMsgPath, 'utf-8');
+          // Extract branch name from "Merge branch 'xyz'"
+          const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
+          if (match && match[1]) {
+            merging = match[1];
           }
+          mergeMessage = msg.split('\n')[0].trim();
         }
       } catch {
-        // ignore
+        // MERGE_MSG might not exist during rebase or cherry-pick
       }
-    }
 
-    // During rebase, check rebase-merge directory for branch info
-    if (!merging) {
-      try {
-        const headNamePath = resolve(gitDir, 'rebase-merge', 'head-name');
-        if (existsSync(headNamePath)) {
-          const headName = (await readFile(headNamePath, 'utf-8')).trim();
-          // head-name is typically "refs/heads/branch-name"
-          merging = headName.replace(/^refs\/heads\//, '');
+      // Try to read .git/MERGE_HEAD for the commit being merged
+      if (!merging) {
+        try {
+          const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
+          if (existsSync(mergeHeadPath)) {
+            const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
+            if (sha) {
+              // Get short ref name for the SHA
+              try {
+                const name = await this.git.nameRev(['--name-only', sha]);
+                const trimmedName = name.trim();
+                merging = trimmedName || sha.substring(0, 7);
+              } catch {
+                merging = sha.substring(0, 7);
+              }
+            }
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
-    }
 
-    return { current, merging, mergeMessage };
+      // During rebase, check rebase-merge directory for branch info
+      if (!merging) {
+        try {
+          const headNamePath = resolve(gitDir, 'rebase-merge', 'head-name');
+          if (existsSync(headNamePath)) {
+            const headName = (await readFile(headNamePath, 'utf-8')).trim();
+            // head-name is typically "refs/heads/branch-name"
+            if (headName) {
+              merging = headName.replace(/^refs\/heads\//, '');
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      return { current, merging, mergeMessage };
+    } catch (error) {
+      throw new Error(`Failed to get merge info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -257,6 +266,70 @@ export class GitOperations {
         throw new Error(`Failed to get conflict status: ${error.message}`);
       }
       throw new Error('Unknown error while getting conflict status');
+    }
+  }
+
+  /**
+   * Check if a file is staged
+   */
+  async isFileStaged(filePath: string): Promise<boolean> {
+    try {
+      const status = await this.git.status();
+      return status.files.some(file => file.path === filePath && file.index !== ' ');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if a file is modified
+   */
+  async isFileModified(filePath: string): Promise<boolean> {
+    try {
+      const status = await this.git.status();
+      return status.files.some(file => file.path === filePath && file.working_dir !== ' ');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get detailed status of a conflicted file
+   */
+  async getFileConflictStatus(filePath: string): Promise<{
+    isConflicted: boolean;
+    isStaged: boolean;
+    isModified: boolean;
+    conflictCount: number;
+  }> {
+    try {
+      const isConflicted = await this.isFileConflicted(filePath);
+      const isStaged = await this.isFileStaged(filePath);
+      const isModified = await this.isFileModified(filePath);
+      
+      let conflictCount = 0;
+      if (isConflicted) {
+        try {
+          const content = await readFile(resolve(this.workingDir, filePath), 'utf-8');
+          conflictCount = this.countConflicts(content);
+        } catch {
+          // File might be locked or unreadable
+        }
+      }
+      
+      return {
+        isConflicted,
+        isStaged,
+        isModified,
+        conflictCount,
+      };
+    } catch (error) {
+      return {
+        isConflicted: false,
+        isStaged: false,
+        isModified: false,
+        conflictCount: 0,
+      };
     }
   }
 }

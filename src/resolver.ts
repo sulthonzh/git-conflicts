@@ -39,13 +39,20 @@ export class ConflictResolver {
       throw new Error('Editor command contains potentially dangerous characters');
     }
 
+    // Normalize whitespace and trim
+    const normalized = editorString.trim().replace(/\s+/g, ' ');
+    
+    if (!normalized) {
+      throw new Error('Empty editor command');
+    }
+
     // Simple shell-like parsing: split on whitespace, respect basic quoting
     const parts: string[] = [];
     let current = '';
     let inQuote = false;
     let quoteChar = '';
 
-    for (const ch of editorString) {
+    for (const ch of normalized) {
       if (inQuote) {
         if (ch === quoteChar) {
           inQuote = false;
@@ -55,7 +62,7 @@ export class ConflictResolver {
       } else if (ch === '"' || ch === "'") {
         inQuote = true;
         quoteChar = ch;
-      } else if (ch === ' ' || ch === '\t') {
+      } else if (ch === ' ') {
         if (current.length > 0) {
           parts.push(current);
           current = '';
@@ -155,8 +162,31 @@ export class ConflictResolver {
           reason: `File too large (${stats.size} bytes). Maximum allowed: ${MAX_FILE_SIZE} bytes`,
         };
       }
+      
+      // Additional security check: ensure file is not a symlink to prevent attacks
+      try {
+        // Check if file is a symlink using lstat instead of stat
+        const lstat = await import('fs').then(fs => fs.promises.lstat(fullPath));
+        if (lstat.isSymbolicLink()) {
+          return {
+            valid: false,
+            reason: 'Symbolic links are not allowed for conflict resolution',
+          };
+        }
+      } catch {
+        // If we can't check, assume it's safe
+      }
 
-      const content = await readFile(fullPath, 'utf-8');
+      // Read file with explicit encoding to prevent encoding issues
+      const content = await readFile(fullPath, { encoding: 'utf8' });
+
+      // Check for empty file (edge case)
+      if (content.length === 0) {
+        return {
+          valid: false,
+          reason: 'File is empty after editing',
+        };
+      }
 
       if (this.gitOps.hasConflictMarkers(content)) {
         return {

@@ -6,6 +6,7 @@ declare module 'simple-git' {
     add(files: string | string[]): Promise<string>;
     raw(args: string[]): Promise<string>;
     revparse(args: string[]): Promise<string>;
+    nameRev(args: string[]): Promise<string>;
     log(options?: Record<string, unknown>): Promise<unknown>;
     stash(options?: Record<string, unknown>): Promise<string>;
     checkout(branch: string): Promise<string>;
