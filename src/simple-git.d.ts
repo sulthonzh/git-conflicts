@@ -6,27 +6,27 @@ declare module 'simple-git' {
     add(files: string | string[]): Promise<string>;
     raw(args: string[]): Promise<string>;
     revparse(args: string[]): Promise<string>;
-    log(options?: any): Promise<any>;
-    stash(options?: any): Promise<string>;
+    log(options?: Record<string, unknown>): Promise<unknown>;
+    stash(options?: Record<string, unknown>): Promise<string>;
     checkout(branch: string): Promise<string>;
     checkoutFiles(files: string[]): Promise<string>;
-    reset(options?: any): Promise<string>;
-    clean(options?: any): Promise<string>;
-    fetch(options?: any): Promise<string>;
-    pull(options?: any): Promise<string>;
-    push(options?: any): Promise<string>;
-    tag(options?: any): Promise<string>;
+    reset(options?: Record<string, unknown>): Promise<string>;
+    clean(options?: Record<string, unknown>): Promise<string>;
+    fetch(options?: Record<string, unknown>): Promise<string>;
+    pull(options?: Record<string, unknown>): Promise<string>;
+    push(options?: Record<string, unknown>): Promise<string>;
+    tag(options?: Record<string, unknown>): Promise<string>;
     clone(url: string, path: string): Promise<string>;
     init(): Promise<string>;
-    remote(options?: any): Promise<string>;
-    branch(options?: any): Promise<string>;
-    describe(options?: any): Promise<string>;
-    blame(options?: any): Promise<string>;
-    show(options?: any): Promise<string>;
-    grep(options?: any): Promise<string>;
+    remote(options?: Record<string, unknown>): Promise<string>;
+    branch(options?: Record<string, unknown>): Promise<string>;
+    describe(options?: Record<string, unknown>): Promise<string>;
+    blame(options?: Record<string, unknown>): Promise<string>;
+    show(options?: Record<string, unknown>): Promise<string>;
+    grep(options?: Record<string, unknown>): Promise<string>;
     mv(from: string, to: string): Promise<string>;
     rm(files: string[]): Promise<string>;
-    commit(message: string, options?: any): Promise<string>;
+    commit(message: string, options?: Record<string, unknown>): Promise<string>;
   }
 
   interface StatusResult {

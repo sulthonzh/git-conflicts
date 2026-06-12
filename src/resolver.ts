@@ -35,7 +35,7 @@ export class ConflictResolver {
     }
 
     // Security: Check for potentially dangerous characters
-    if (/[;&|`$(){}\[\]]/.test(editorString)) {
+    if (/[;&|`$(){}[]]/.test(editorString)) {
       throw new Error('Editor command contains potentially dangerous characters');
     }
 

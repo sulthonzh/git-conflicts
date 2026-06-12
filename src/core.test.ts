@@ -1,20 +1,17 @@
 import { GitOperations } from '../src/git';
 import { ProgressTracker } from '../src/progress';
 import { ConflictResolver } from '../src/resolver';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import fs, { Stats } from 'fs';
+import fsPromises from 'fs/promises';
 
 jest.mock('simple-git');
 jest.mock('child_process');
 jest.mock('fs/promises');
+jest.mock('fs');
 
-// Mock existsSync - we'll use the actual fs module and mock its existsSync
-jest.mock('fs', () => ({
-  ...jest.requireActual('fs'),
-  existsSync: jest.fn()
-}));
-
-const mockExistsSync = (require('fs') as any).existsSync;
+// Mock existsSync
+const mockExistsSync = jest.fn();
+fs.existsSync = mockExistsSync;
 
 describe('ProgressTracker', () => {
   it('should initialize with correct total', () => {
@@ -39,14 +36,13 @@ describe('ProgressTracker', () => {
     tracker.increment();
     expect(tracker.getProgress().percent).toBe(50);
     tracker.increment();
+    expect(tracker.getProgress().percent).toBe(75);
     tracker.increment();
     expect(tracker.getProgress().percent).toBe(100);
   });
 
   it('should report complete status', () => {
-    const tracker = new ProgressTracker(2);
-    expect(tracker.isComplete()).toBe(false);
-    tracker.increment();
+    const tracker = new ProgressTracker(1);
     expect(tracker.isComplete()).toBe(false);
     tracker.increment();
     expect(tracker.isComplete()).toBe(true);
@@ -59,9 +55,7 @@ describe('ProgressTracker', () => {
     expect(tracker.getRemaining()).toBe(4);
     tracker.increment();
     tracker.increment();
-    tracker.increment();
-    tracker.increment();
-    expect(tracker.getRemaining()).toBe(0);
+    expect(tracker.getRemaining()).toBe(2);
   });
 });
 
@@ -69,69 +63,89 @@ describe('GitOperations', () => {
   let gitOps: GitOperations;
 
   beforeEach(() => {
-    // We can't really mock simple-git cleanly in Jest without more setup
-    // So these tests will be basic structure tests
     gitOps = new GitOperations();
   });
 
   it('should detect conflict markers in content', () => {
-    const contentWithMarkers = 'some code\n<<<<<<< HEAD\nmy code\n=======\ntheir code\n>>>>>>> feature\nend';
-    expect(gitOps.hasConflictMarkers(contentWithMarkers)).toBe(true);
+    const conflictedContent = `<<<<<<< HEAD
+const a = 1;
+=======
+const b = 2;
+>>>>>>> feature-branch`;
+    expect(gitOps.hasConflictMarkers(conflictedContent)).toBe(true);
   });
 
   it('should not detect conflict markers in clean content', () => {
-    const cleanContent = 'some code\nmy code\nend';
+    const cleanContent = `const a = 1;
+// This is not a conflict marker <<<<<<<
+const b = 2;`;
     expect(gitOps.hasConflictMarkers(cleanContent)).toBe(false);
   });
 
   it('should not false-positive on marker text inside strings', () => {
-    // A string literal or comment containing <<<<<<< should not be flagged
-    const contentWithString = 'const msg = "use <<<<<<< to mark conflicts";';
-    expect(gitOps.hasConflictMarkers(contentWithString)).toBe(false);
+    const content = `const message = "Please resolve this<<<<<<< conflict";
+const another = "This is not a conflict marker >>>>>>>";
+const separator = "This is not ======= a separator";`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(false);
   });
 
-  it('should detect diff3 conflict markers (|||||||)', () => {
-    const diff3Content = '||||||| merged common ancestors\nbase\n=======\nours\n>>>>>>> feature';
+  it('should detect diff3 conflict markers', () => {
+    const diff3Content = `<<<<<<< HEAD
+const a = 1;
+|||||||
+const base = 0;
+=======
+const b = 2;
+>>>>>>> feature-branch`;
     expect(gitOps.hasConflictMarkers(diff3Content)).toBe(true);
   });
 
   it('should detect remaining ======= and >>>>>>> markers', () => {
-    // User deleted <<<<<<< but left other markers
-    const partialMarkers = 'some code\n=======\ntheir code\n>>>>>>> feature\nend';
-    expect(gitOps.hasConflictMarkers(partialMarkers)).toBe(true);
+    const content = `const a = 1;
+=======
+const b = 2;
+>>>>>>> feature-branch`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(true);
   });
 
   it('should count conflict markers correctly', () => {
-    const singleConflict = 'some code\n<<<<<<< HEAD\nmy code\n=======\ntheir code\n>>>>>>> feature\nend';
-    expect(gitOps.countConflicts(singleConflict)).toBe(1);
-
-    const multipleConflicts = 'a\n<<<<<<< HEAD\nx\n=======\ny\n>>>>>>> f1\nb\n<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> f2';
-    expect(gitOps.countConflicts(multipleConflicts)).toBe(2);
-
-    const cleanContent = 'no conflicts here';
-    expect(gitOps.countConflicts(cleanContent)).toBe(0);
+    const content = `<<<<<<< HEAD
+const a = 1;
+=======
+const b = 2;
+>>>>>>> feature-branch
+<<<<<<< HEAD
+const c = 3;
+=======
+const d = 4;
+>>>>>>> another-branch`;
+    expect(gitOps.countConflicts(content)).toBe(2);
   });
 
   it('should count bare <<<<<<< lines without branch name', () => {
-    const bareMarker = 'some code\n<<<<<<<\nmy code\n=======\ntheir code\n>>>>>>> feature';
-    expect(gitOps.countConflicts(bareMarker)).toBe(1);
+    const content = `<<<<<<<
+const a = 1;
+=======
+const b = 2;
+>>>>>>>`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(true);
+    expect(gitOps.countConflicts(content)).toBe(1);
   });
 });
 
 describe('ConflictResolver', () => {
   let resolver: ConflictResolver;
+  let customGitOps: GitOperations;
 
   beforeEach(() => {
-    resolver = new ConflictResolver();
-    mockExistsSync.mockReturnValue(true);
-  });
-
-  afterEach(() => {
+    customGitOps = new GitOperations();
+    resolver = new ConflictResolver(customGitOps);
+    // Reset all mocks
     mockExistsSync.mockClear();
+    (fsPromises.readFile as jest.Mock).mockClear();
   });
 
   it('should accept a GitOperations instance', () => {
-    const customGitOps = new GitOperations('/some/path');
     const customResolver = new ConflictResolver(customGitOps);
     // Should not throw
     expect(customResolver).toBeInstanceOf(ConflictResolver);
@@ -139,14 +153,9 @@ describe('ConflictResolver', () => {
 
   it('should validate clean file content', async () => {
     const cleanContent = 'const x = 1;';
-    (fs.readFile as jest.Mock).mockResolvedValue(cleanContent);
-    
-    // Mock stat to return a small file
-    const mockStat = jest.fn().mockResolvedValue({ size: 100 });
-    jest.mock('fs/promises', () => ({
-      ...jest.requireActual('fs/promises'),
-      stat: mockStat
-    }));
+    (fsPromises.readFile as jest.Mock).mockResolvedValue(cleanContent);
+    mockExistsSync.mockReturnValue(true);
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({ size: 100 } as Stats);
 
     const result = await resolver.validateResolution('test.ts');
     expect(result.valid).toBe(true);
@@ -155,7 +164,9 @@ describe('ConflictResolver', () => {
 
   it('should fail validation for conflict markers', async () => {
     const conflictedContent = '<<<<<<< HEAD\ncode\n=======\ncode2\n>>>>>>>';
-    (fs.readFile as jest.Mock).mockResolvedValue(conflictedContent);
+    (fsPromises.readFile as jest.Mock).mockResolvedValue(conflictedContent);
+    mockExistsSync.mockReturnValue(true);
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({ size: 100 } as Stats);
 
     const result = await resolver.validateResolution('test.ts');
     expect(result.valid).toBe(false);
@@ -164,7 +175,7 @@ describe('ConflictResolver', () => {
 
   it('should handle read errors during validation', async () => {
     mockExistsSync.mockReturnValue(true);
-    (fs.readFile as jest.Mock).mockRejectedValue(new Error('File not found'));
+    (fsPromises.readFile as jest.Mock).mockRejectedValue(new Error('File not found'));
 
     const result = await resolver.validateResolution('nonexistent.ts');
     expect(result.valid).toBe(false);

@@ -1,21 +1,9 @@
-import simpleGit, { SimpleGit, StatusResult, StatusFile } from 'simple-git';
+import simpleGit, { SimpleGit, StatusFile } from 'simple-git';
 import { resolve } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
-// Extended interface for better type safety
-interface ExtendedStatusFile extends StatusFile {
-  path: string;
-  index: string;
-  working_dir: string;
-  type?: 'M' | 'A' | 'D' | 'R' | 'C' | 'U';
-}
 
-interface GitOperationError extends Error {
-  message: string;
-  code?: string;
-  syscall?: string;
-}
 
 export class GitOperations {
   private git: SimpleGit;
