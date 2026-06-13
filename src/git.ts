@@ -141,10 +141,24 @@ export class GitOperations {
 
   /**
    * Check if a file is currently in conflicted state
+   * Accepts both relative and absolute paths for flexibility.
    */
   async isFileConflicted(filePath: string): Promise<boolean> {
     const conflictedFiles = await this.getConflictedFiles();
-    return conflictedFiles.includes(filePath);
+    // Normalize input to relative path for comparison with git output
+    const relative = this.toRelativePath(filePath);
+    return conflictedFiles.includes(relative) || conflictedFiles.includes(filePath);
+  }
+
+  /**
+   * Convert an absolute or relative path to a path relative to workingDir
+   */
+  private toRelativePath(filePath: string): string {
+    const absolute = resolve(this.workingDir, filePath);
+    if (absolute.startsWith(this.workingDir)) {
+      return absolute.slice(this.workingDir.length + 1);
+    }
+    return filePath;
   }
 
   /**
@@ -283,9 +297,9 @@ export class GitOperations {
         return false;
       }
       
-      const normalizedPath = resolve(this.workingDir, filePath);
+      const relativePath = this.toRelativePath(filePath);
       const status = await this.git.status();
-      return status.files.some(file => file.path === normalizedPath && file.index !== ' ');
+      return status.files.some(file => file.path === relativePath && file.index !== ' ');
     } catch {
       return false;
     }
@@ -300,9 +314,9 @@ export class GitOperations {
         return false;
       }
       
-      const normalizedPath = resolve(this.workingDir, filePath);
+      const relativePath = this.toRelativePath(filePath);
       const status = await this.git.status();
-      return status.files.some(file => file.path === normalizedPath && file.working_dir !== ' ');
+      return status.files.some(file => file.path === relativePath && file.working_dir !== ' ');
     } catch {
       return false;
     }
@@ -327,15 +341,15 @@ export class GitOperations {
         };
       }
       
-      const normalizedPath = resolve(this.workingDir, filePath);
-      const isConflicted = await this.isFileConflicted(normalizedPath);
-      const isStaged = await this.isFileStaged(normalizedPath);
-      const isModified = await this.isFileModified(normalizedPath);
+      const isConflicted = await this.isFileConflicted(filePath);
+      const isStaged = await this.isFileStaged(filePath);
+      const isModified = await this.isFileModified(filePath);
       
       let conflictCount = 0;
       if (isConflicted) {
         try {
-          const content = await readFile(normalizedPath, 'utf-8');
+          const fullPath = resolve(this.workingDir, filePath);
+          const content = await readFile(fullPath, 'utf-8');
           conflictCount = this.countConflicts(content);
         } catch {
           // File might be locked or unreadable

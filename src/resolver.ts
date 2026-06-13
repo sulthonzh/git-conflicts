@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { readFile, stat } from 'fs/promises';
+import { readFile, stat, lstat } from 'fs/promises';
 import { resolve } from 'path';
 import { GitOperations } from './git';
 import { existsSync } from 'fs';
@@ -19,13 +19,13 @@ const SAFE_EDITORS = new Set([
   'webstorm', 'intellij', 'idea', 'rubymine', 'phpstorm',
   'pycharm', 'goland', 'clion', 'datagrip', 'rider', 'teamcity',
   // VS family
-  'rider', 'resharper', 'resharper-cmd', 
+  'resharper', 'resharper-cmd', 
   // Eclipse family
   'eclipse', 'eclipse-java', 'eclipse-cpp', 
   // Windows editors
   'notepad', 'notepad++', 'notepad2', 'notepad3', 'editplus', 'ultraedit',
   // Linux editors
-  'gedit', 'kate', 'mousepad', 'leafpad', 'pluma', 'geany', 'mousepad',
+  'gedit', 'kate', 'mousepad', 'leafpad', 'pluma', 'geany',
   // macOS editors
   'textedit', 'xcode', 'macvim', 'mvim',
   // Terminal-based editors
@@ -54,9 +54,10 @@ export class ConflictResolver {
       throw new Error('Invalid editor command');
     }
 
-    // Security: Check for potentially dangerous shell metacharacters (more precise)
-    // Allow brackets in editor names, but prevent shell injection
-    if (/[^\w\-\/.@\s]/.test(editorString) || /[;&|`$(){}[\]]/.test(editorString)) {
+    // Security: Block shell metacharacters that enable command injection
+    // Note: We allow + for editors like notepad++, and rely on the whitelist below
+    // as the primary security boundary.
+    if (/[;&|`$(){}[\]<>]/.test(editorString)) {
       throw new Error('Editor command contains potentially dangerous characters');
     }
 
@@ -186,9 +187,8 @@ export class ConflictResolver {
       
       // Additional security check: ensure file is not a symlink to prevent attacks
       try {
-        // Check if file is a symlink using lstat instead of stat
-        const lstat = await import('fs').then(fs => fs.promises.lstat(fullPath));
-        if (lstat.isSymbolicLink()) {
+        const linkStat = await lstat(fullPath);
+        if (linkStat.isSymbolicLink()) {
           return {
             valid: false,
             reason: 'Symbolic links are not allowed for conflict resolution',
@@ -234,7 +234,7 @@ export class ConflictResolver {
       
       // Check file size before reading
       if (existsSync(fullPath)) {
-        const stats = await import('fs').then(fs => fs.promises.stat(fullPath));
+        const stats = await stat(fullPath);
         if (stats.size > MAX_FILE_SIZE) {
           return -1; // Special value for oversized files
         }
