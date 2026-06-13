@@ -1,4 +1,5 @@
-import simpleGit, { SimpleGit, StatusFile } from 'simple-git';
+import simpleGit from 'simple-git';
+import type { SimpleGit, StatusFile } from 'simple-git';
 import { resolve } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -56,10 +57,14 @@ export class GitOperations {
    * Resolve the absolute .git directory path
    */
   private async getAbsoluteGitDir(): Promise<string> {
-    const gitDir = await this.git.revparse(['--git-dir']);
-    // revparse --git-dir can return relative paths like ".git"
-    const absolute = resolve(this.workingDir, gitDir.trim());
-    return absolute;
+    try {
+      const gitDir = await this.git.revparse(['--git-dir']);
+      // revparse --git-dir can return relative paths like ".git"
+      const absolute = resolve(this.workingDir, gitDir.trim());
+      return absolute;
+    } catch (error) {
+      throw new Error(`Failed to resolve git directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -213,7 +218,7 @@ export class GitOperations {
       const unmergedCodes = new Set(['U', 'A', 'D']);
       const hasUnmergedFiles = status.files.some(
         (f: StatusFile) =>
-          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir || '')
+          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir ?? '')
       );
 
       if (hasUnmergedFiles) {
@@ -274,8 +279,13 @@ export class GitOperations {
    */
   async isFileStaged(filePath: string): Promise<boolean> {
     try {
+      if (!filePath || typeof filePath !== 'string') {
+        return false;
+      }
+      
+      const normalizedPath = resolve(this.workingDir, filePath);
       const status = await this.git.status();
-      return status.files.some(file => file.path === filePath && file.index !== ' ');
+      return status.files.some(file => file.path === normalizedPath && file.index !== ' ');
     } catch {
       return false;
     }
@@ -286,8 +296,13 @@ export class GitOperations {
    */
   async isFileModified(filePath: string): Promise<boolean> {
     try {
+      if (!filePath || typeof filePath !== 'string') {
+        return false;
+      }
+      
+      const normalizedPath = resolve(this.workingDir, filePath);
       const status = await this.git.status();
-      return status.files.some(file => file.path === filePath && file.working_dir !== ' ');
+      return status.files.some(file => file.path === normalizedPath && file.working_dir !== ' ');
     } catch {
       return false;
     }
@@ -303,14 +318,24 @@ export class GitOperations {
     conflictCount: number;
   }> {
     try {
-      const isConflicted = await this.isFileConflicted(filePath);
-      const isStaged = await this.isFileStaged(filePath);
-      const isModified = await this.isFileModified(filePath);
+      if (!filePath || typeof filePath !== 'string') {
+        return {
+          isConflicted: false,
+          isStaged: false,
+          isModified: false,
+          conflictCount: 0,
+        };
+      }
+      
+      const normalizedPath = resolve(this.workingDir, filePath);
+      const isConflicted = await this.isFileConflicted(normalizedPath);
+      const isStaged = await this.isFileStaged(normalizedPath);
+      const isModified = await this.isFileModified(normalizedPath);
       
       let conflictCount = 0;
       if (isConflicted) {
         try {
-          const content = await readFile(resolve(this.workingDir, filePath), 'utf-8');
+          const content = await readFile(normalizedPath, 'utf-8');
           conflictCount = this.countConflicts(content);
         } catch {
           // File might be locked or unreadable
@@ -323,7 +348,7 @@ export class GitOperations {
         isModified,
         conflictCount,
       };
-    } catch (error) {
+    } catch {
       return {
         isConflicted: false,
         isStaged: false,

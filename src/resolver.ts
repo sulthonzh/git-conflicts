@@ -5,11 +5,31 @@ import { GitOperations } from './git';
 import { existsSync } from 'fs';
 
 // Common safe editors with their typical executable names
+// Updated with modern editors and common IDEs
 const SAFE_EDITORS = new Set([
-  'code', 'code-insiders', 'vscode', 'vim', 'nvim', 'nano', 'emacs', 
-  'subl', 'atom', 'webstorm', 'intellij', 'idea', 'rubymine', 'phpstorm',
-  'pycharm', 'goland', 'clion', 'eclipse', 'notepad', 'notepad++',
-  'gedit', 'kate', 'mousepad', 'leafpad', 'gedit'
+  // VS Code family
+  'code', 'code-insiders', 'code-oss', 'vscode', 
+  // Vim/neovim
+  'vim', 'nvim', 'vim-nix', 'neovim',
+  // Traditional editors
+  'nano', 'emacs', 'micro', 
+  // Sublime Text
+  'subl', 'sublime-text', 'sublime-merge',
+  // JetBrains IDEs
+  'webstorm', 'intellij', 'idea', 'rubymine', 'phpstorm',
+  'pycharm', 'goland', 'clion', 'datagrip', 'rider', 'teamcity',
+  // VS family
+  'rider', 'resharper', 'resharper-cmd', 
+  // Eclipse family
+  'eclipse', 'eclipse-java', 'eclipse-cpp', 
+  // Windows editors
+  'notepad', 'notepad++', 'notepad2', 'notepad3', 'editplus', 'ultraedit',
+  // Linux editors
+  'gedit', 'kate', 'mousepad', 'leafpad', 'pluma', 'geany', 'mousepad',
+  // macOS editors
+  'textedit', 'xcode', 'macvim', 'mvim',
+  // Terminal-based editors
+  'joe', 'joe-editor', 'pico', 'jed'
 ]);
 
 // Maximum file size for conflict resolution (10MB)
@@ -34,8 +54,9 @@ export class ConflictResolver {
       throw new Error('Invalid editor command');
     }
 
-    // Security: Check for potentially dangerous characters
-    if (/[;&|`$(){}[]]/.test(editorString)) {
+    // Security: Check for potentially dangerous shell metacharacters (more precise)
+    // Allow brackets in editor names, but prevent shell injection
+    if (/[^\w\-\/.@\s]/.test(editorString) || /[;&|`$(){}[\]]/.test(editorString)) {
       throw new Error('Editor command contains potentially dangerous characters');
     }
 
@@ -92,7 +113,7 @@ export class ConflictResolver {
    * Open file in user's preferred editor with timeout
    */
   async openInEditor(filePath: string): Promise<void> {
-    const editorString = process.env.EDITOR || process.env.VISUAL || this.getDefaultEditor();
+    const editorString = process.env.EDITOR ?? process.env.VISUAL ?? this.getDefaultEditor();
     const fullPath = resolve(filePath);
     const { command, args } = this.parseEditorCommand(editorString);
 
