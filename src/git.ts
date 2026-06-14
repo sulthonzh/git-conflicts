@@ -229,10 +229,14 @@ export class GitOperations {
   async getMergeState(): Promise<'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown'> {
     try {
       const status = await this.git.status();
-      const unmergedCodes = new Set(['U', 'A', 'D']);
+      // Git conflict status codes are specific two-character combinations:
+      // DD (both deleted), AU (added by us), UD (deleted by them),
+      // UA (added by them), DU (deleted by us), AA (both added), UU (both modified)
+      // Checking individual chars against {U,A,D} incorrectly matches non-conflict
+      // states like AD (staged add + working tree deletion).
+      const conflictCodes = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
       const hasUnmergedFiles = status.files.some(
-        (f: StatusFile) =>
-          unmergedCodes.has(f.index) && unmergedCodes.has(f.working_dir ?? '')
+        (f: StatusFile) => conflictCodes.has(`${f.index}${f.working_dir ?? ''}`)
       );
 
       if (hasUnmergedFiles) {

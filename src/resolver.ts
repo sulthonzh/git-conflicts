@@ -102,8 +102,14 @@ export class ConflictResolver {
     }
 
     // Security: Validate editor executable against whitelist
+    // Strip common executable extensions only (not arbitrary dot-separated suffixes)
+    // Using split('.')[0] would allow bypasses like "code.evil" or "vim.malicious"
     const command = parts[0];
-    if (!SAFE_EDITORS.has(command.split('.')[0])) {
+    const EXEC_EXTENSIONS = ['.exe', '.app', '.bat', '.cmd', '.com'];
+    const baseName = EXEC_EXTENSIONS.some(ext => command.toLowerCase().endsWith(ext))
+      ? command.slice(0, command.lastIndexOf('.'))
+      : command;
+    if (!SAFE_EDITORS.has(baseName)) {
       throw new Error(`Editor "${command}" is not in the safe list of editors`);
     }
 
@@ -259,9 +265,19 @@ export class ConflictResolver {
   async resolveFile(filePath: string): Promise<{ success: boolean; message: string }> {
     try {
       await this.openInEditor(filePath);
-    } catch {
-      // Editor exited with non-zero code — don't give up yet.
-      // The user may have saved the file with conflicts resolved.
+    } catch (error) {
+      // Distinguish between fatal editor errors (binary not found) and
+      // non-zero exit codes (already handled inside openInEditor, which
+      // resolves on close regardless of code). If we get here with ENOENT,
+      // the editor binary doesn't exist — no point validating an unedited file.
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('Failed to open editor') || msg.includes('ENOENT')) {
+        return {
+          success: false,
+          message: `${filePath}: ${msg}`,
+        };
+      }
+      // Timeout or other non-fatal errors — user may have saved before abort.
       // Fall through to validate the file content below.
     }
 
