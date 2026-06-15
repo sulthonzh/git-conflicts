@@ -1,9 +1,11 @@
 import simpleGit from 'simple-git';
 import type { SimpleGit, StatusFile } from 'simple-git';
 import { resolve } from 'path';
-import { readFile } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 
+// Maximum file size for conflict resolution (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 
 export class GitOperations {
@@ -258,6 +260,7 @@ export class GitOperations {
 
   /**
    * Get conflict status as structured data (for --json)
+   * Atomic method to avoid race conditions between git operations
    */
   async getConflictStatus(): Promise<{
     hasConflicts: boolean;
@@ -268,12 +271,41 @@ export class GitOperations {
     mergeState: 'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown';
   }> {
     try {
-      const files = await this.getConflictedFiles();
-      const info = await this.getMergeInfo();
-      const mergeState = await this.getMergeState();
+      // Get all data in parallel for better performance, then validate consistency
+      const [files, info, mergeState] = await Promise.all([
+        this.getConflictedFiles(),
+        this.getMergeInfo(),
+        this.getMergeState()
+      ]);
+      
+      // Validate consistency between merge state and conflicted files
+      const hasUnmergedFiles = files.length > 0;
+      const inconsistentState = (mergeState === 'none' && hasUnmergedFiles) || 
+                               (mergeState !== 'none' && !hasUnmergedFiles && mergeState !== 'unknown');
+      
+      if (inconsistentState) {
+        // This can happen in transient states during git operations
+        console.warn('Warning: Inconsistent git state detected, retrying...');
+        // Add a small delay and retry once
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const [retryFiles, retryInfo, retryMergeState] = await Promise.all([
+          this.getConflictedFiles(),
+          this.getMergeInfo(),
+          this.getMergeState()
+        ]);
+        
+        return {
+          hasConflicts: retryFiles.length > 0,
+          files: retryFiles,
+          branch: retryInfo.current,
+          merging: retryInfo.merging,
+          mergeMessage: retryInfo.mergeMessage,
+          mergeState: retryMergeState,
+        };
+      }
       
       return {
-        hasConflicts: files.length > 0,
+        hasConflicts: hasUnmergedFiles,
         files,
         branch: info.current,
         merging: info.merging,
@@ -319,6 +351,39 @@ export class GitOperations {
       return status.files.some(file => file.path === relativePath && file.working_dir !== ' ');
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Count conflicts in a specific file
+   */
+  async countConflictsInFile(filePath: string): Promise<number> {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return 0;
+      }
+      
+      const relativePath = this.toRelativePath(filePath);
+      const isConflicted = await this.isFileConflicted(relativePath);
+      
+      if (!isConflicted) {
+        return 0;
+      }
+      
+      const fullPath = resolve(this.workingDir, relativePath);
+      if (existsSync(fullPath)) {
+        const stats = await stat(fullPath);
+        if (stats.size > MAX_FILE_SIZE) {
+          return 0; // Skip oversized files for statistics
+        }
+        
+        const content = await readFile(fullPath, 'utf-8');
+        return this.countConflicts(content);
+      }
+      
+      return 0;
+    } catch {
+      return 0;
     }
   }
 

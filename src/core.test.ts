@@ -67,67 +67,37 @@ describe('GitOperations', () => {
   });
 
   it('should detect conflict markers in content', () => {
-    const conflictedContent = `<<<<<<< HEAD
-const a = 1;
-=======
-const b = 2;
->>>>>>> feature-branch`;
+    const conflictedContent = '<<<<<<< HEAD\nconst a = 1;\n=======\nconst b = 2;\n>>>>>>> feature-branch';
     expect(gitOps.hasConflictMarkers(conflictedContent)).toBe(true);
   });
 
   it('should not detect conflict markers in clean content', () => {
-    const cleanContent = `const a = 1;
-// This is not a conflict marker <<<<<<<
-const b = 2;`;
+    const cleanContent = 'const a = 1;\n// This is not a conflict marker <<<<<<<\nconst b = 2;';
     expect(gitOps.hasConflictMarkers(cleanContent)).toBe(false);
   });
 
   it('should not false-positive on marker text inside strings', () => {
-    const content = `const message = "Please resolve this<<<<<<< conflict";
-const another = "This is not a conflict marker >>>>>>>";
-const separator = "This is not ======= a separator";`;
+    const content = 'const message = "Please resolve this<<<<<<< conflict";\nconst another = "This is not a conflict marker >>>>>>>";\nconst separator = "This is not ======= a separator";';
     expect(gitOps.hasConflictMarkers(content)).toBe(false);
   });
 
   it('should detect diff3 conflict markers', () => {
-    const diff3Content = `<<<<<<< HEAD
-const a = 1;
-|||||||
-const base = 0;
-=======
-const b = 2;
->>>>>>> feature-branch`;
+    const diff3Content = '<<<<<<< HEAD\nconst a = 1;\n|||||||\nconst base = 0;\n=======\nconst b = 2;\n>>>>>>> feature-branch';
     expect(gitOps.hasConflictMarkers(diff3Content)).toBe(true);
   });
 
   it('should detect remaining ======= and >>>>>>> markers', () => {
-    const content = `const a = 1;
-=======
-const b = 2;
->>>>>>> feature-branch`;
+    const content = 'const a = 1;\n=======\nconst b = 2;\n>>>>>>> feature-branch';
     expect(gitOps.hasConflictMarkers(content)).toBe(true);
   });
 
   it('should count conflict markers correctly', () => {
-    const content = `<<<<<<< HEAD
-const a = 1;
-=======
-const b = 2;
->>>>>>> feature-branch
-<<<<<<< HEAD
-const c = 3;
-=======
-const d = 4;
->>>>>>> another-branch`;
+    const content = '<<<<<<< HEAD\nconst a = 1;\n=======\nconst b = 2;\n>>>>>>> feature-branch\n<<<<<<< HEAD\nconst c = 3;\n=======\nconst d = 4;\n>>>>>>> another-branch';
     expect(gitOps.countConflicts(content)).toBe(2);
   });
 
   it('should count bare <<<<<<< lines without branch name', () => {
-    const content = `<<<<<<<
-const a = 1;
-=======
-const b = 2;
->>>>>>>`;
+    const content = '<<<<<<<\nconst a = 1;\n=======\nconst b = 2;\n>>>>>>>';
     expect(gitOps.hasConflictMarkers(content)).toBe(true);
     expect(gitOps.countConflicts(content)).toBe(1);
   });

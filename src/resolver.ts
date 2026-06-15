@@ -129,7 +129,7 @@ export class ConflictResolver {
     return new Promise((resolvePromise, reject) => {
       // Set up timeout to prevent hanging
       const timeout = setTimeout(() => {
-        reject(new Error(`Editor timed out after ${this.editorTimeout}ms`));
+        reject(new Error(`Editor timed out after ${this.editorTimeout}ms. The editor may still be running.`));
       }, this.editorTimeout);
 
       const editorProcess = spawn(command, [...args, fullPath], {
@@ -143,13 +143,14 @@ export class ConflictResolver {
         } else {
           // Don't reject on non-zero exit codes - editor might exit with non-zero
           // for benign reasons (e.g., vim swap file warnings) while user saved changes
+          console.log(`  Editor exited with code ${code}. Assuming changes were saved.`);
           resolvePromise();
         }
       });
 
       editorProcess.on('error', (err) => {
         clearTimeout(timeout);
-        reject(new Error(`Failed to open editor: ${err.message}`));
+        reject(new Error(`Failed to open editor: ${err.message}. Please check if '${command}' is installed and accessible.`));
       });
     });
   }
@@ -230,22 +231,26 @@ export class ConflictResolver {
 
   /**
    * Get the number of conflict markers in a file
+   * Returns -1 for oversized files, -2 for unreadable files
    */
   async getConflictCount(filePath: string): Promise<number> {
     try {
       const fullPath = resolve(filePath);
       
-      if (existsSync(fullPath)) {
-        const stats = await stat(fullPath);
-        if (stats.size > MAX_FILE_SIZE) {
-          return -1; // Special value for oversized files
-        }
+      if (!existsSync(fullPath)) {
+        return 0; // File doesn't exist, no conflicts
+      }
+      
+      const stats = await stat(fullPath);
+      if (stats.size > MAX_FILE_SIZE) {
+        return -1; // Special value for oversized files
       }
       
       const content = await readFile(fullPath, 'utf-8');
       return this.gitOps.countConflicts(content);
-    } catch {
-      return 0;
+    } catch (error) {
+      // File might be locked, permissions issue, or other read error
+      return -2; // Special value for unreadable files
     }
   }
 

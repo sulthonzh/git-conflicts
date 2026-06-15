@@ -6,6 +6,9 @@ import { GitOperations } from './git';
 import { ProgressTracker } from './progress';
 import { ConflictResolver } from './resolver';
 
+// Maximum file size for conflict resolution (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 const program = new Command();
 
 program
@@ -102,6 +105,20 @@ async function showStatus(gitOps: GitOperations, jsonMode: boolean): Promise<voi
   }
 }
 
+async function getTotalConflicts(files: string[]): Promise<number> {
+  let total = 0;
+  for (const file of files) {
+    try {
+      const gitOps = new GitOperations();
+      const count = await gitOps.countConflictsInFile(file);
+      if (count > 0) total += count;
+    } catch {
+      // Skip files we can't read
+    }
+  }
+  return total;
+}
+
 async function resolveConflicts(
   gitOps: GitOperations,
   resolver: ConflictResolver,
@@ -171,9 +188,18 @@ async function resolveConflicts(
       if (conflictCount === -1) {
         oversizedFiles.push(file);
         console.log(chalk.yellow(`⚠️  ${file} (file too large, skipped)`));
-        console.log(chalk.gray('  Skipping to next file...'));
+        console.log(chalk.gray(`  Max file size: ${MAX_FILE_SIZE / 1024 / 1024}MB. Use manual resolution for large files.`));
         failedCount++;
         failedFiles.push(file);
+        console.log('');
+        continue;
+      }
+      
+      if (conflictCount === -2) {
+        failedFiles.push(file);
+        console.log(chalk.red(`❌ ${file} (unreadable file, skipped)`));
+        console.log(chalk.gray('  The file may be locked, permission denied, or corrupted.'));
+        failedCount++;
         console.log('');
         continue;
       }
@@ -201,6 +227,16 @@ async function resolveConflicts(
         failedCount++;
         failedFiles.push(file);
         console.log(chalk.yellow(`  ${result.message}`));
+        
+        // Provide helpful hints for common resolution failures
+        if (result.message.includes('conflict markers still present')) {
+          console.log(chalk.gray('  Tip: Make sure to remove all <<<<<<<, =======, and >>>>>>> markers.'));
+        } else if (result.message.includes('file does not exist')) {
+          console.log(chalk.gray('  Tip: The file may have been deleted or moved. Check git status.'));
+        } else if (result.message.includes('file is empty')) {
+          console.log(chalk.gray('  Tip: The file appears to be empty after editing. Consider restoring from git.'));
+        }
+        
         console.log(chalk.gray('  Skipping to next file...'));
       }
 
@@ -211,14 +247,23 @@ async function resolveConflicts(
     console.log(chalk.bold('── Summary ──'));
     console.log(chalk.green(`  Resolved: ${resolvedCount}/${status.files.length}`));
     
-    if (oversizedFiles.length > 0) {
-      console.log(chalk.yellow(`  Oversized (skipped): ${oversizedFiles.length}`));
-      console.log(chalk.gray(`  Max file size: 10MB`));
+    // Show conflict statistics if available
+    if (status.files.length > 0) {
+      const totalConflicts = await getTotalConflicts(status.files);
+      if (totalConflicts > 0) {
+        console.log(chalk.gray(`  Total conflicts found: ${totalConflicts}`));
+        console.log(chalk.gray(`  Average conflicts per file: ${(totalConflicts / status.files.length).toFixed(1)}`));
+      }
     }
     
-    if (failedCount > oversizedFiles.length) {
-      const actualFailed = failedCount - oversizedFiles.length;
-      console.log(chalk.yellow(`  Skipped: ${actualFailed}`));
+    if (oversizedFiles.length > 0) {
+      console.log(chalk.yellow(`  Oversized (skipped): ${oversizedFiles.length}`));
+      console.log(chalk.gray(`  Max file size: ${MAX_FILE_SIZE / 1024 / 1024}MB`));
+    }
+    
+    const nonOversizedFailed = failedCount - oversizedFiles.length;
+    if (nonOversizedFailed > 0) {
+      console.log(chalk.yellow(`  Resolution failed: ${nonOversizedFailed}`));
     }
     
     if (failedFiles.length > 0) {
