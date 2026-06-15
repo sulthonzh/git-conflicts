@@ -1,0 +1,22 @@
+{
+  "name": "tsbound",
+  "version": "1.0.0",
+  "description": "Analyze TypeScript import boundaries, coupling scores, and circular dependency chains",
+  "main": "index.js",
+  "bin": {
+    "tsbound": "cli.js"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "typescript",
+    "circular-dependency",
+    "dependency-graph",
+    "coupling",
+    "boundaries",
+    "static-analysis"
+  ],
+  "license": "MIT",
+  "author": "sulthonzh"
+}

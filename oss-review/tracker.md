@@ -34,8 +34,8 @@
       }
     },
     "TelyX": {
-      "review_count": 5,
-      "last_review_date": "2026-06-12",
+      "review_count": 7,
+      "last_review_date": "2026-06-15",
       "current_branch": "enhancements-improvements",
       "commit_hash": "a0d0ce6",
       "pr_link": "https://github.com/sulthonzh/TelyX/compare/enhancements-improvements",
@@ -93,10 +93,32 @@
       }
     },
     "logchef-zig": {
-      "review_count": 4,
-      "last_review_date": "2026-06-12",
-      "current_branch": "security-fixes",
-      "commit_hash": "920b814",
+      "review_count": 6,
+      "last_review_date": "2026-06-14",
+      "pr_link": "https://github.com/quadbyte/logchef-zig/pull/22",
+      "pr_status": "submitted",
+      "pr_branch": "fix/repo-cleanup-naming-build-artifacts",
+      "commit_hash": "a9751c6",
+      "fixes_applied": [
+        "Fixed critical leap year validation bug in parseIso8601 (main.zig): year % 100 != 0 should be year % 100 == 0",
+        "Added fatal/panic/trace recognition to LogLevel.fromString for consistency with guessLevel",
+        "Fixed JSON object key escaping in formatJsonValueTo — keys with special chars produced invalid JSON",
+        "Removed redundant duplicate day > 31 checks in main.zig and reader.zig",
+        "Updated test expectations for trace/fatal/panic level parsing"
+      ],
+      "critical_bugs_fixed": [
+        "Leap year validation rejected valid Feb 29 for ALL non-century leap years (2024, 2020, 2016, etc)",
+        "LogLevel.fromString missing fatal/panic/trace caused inconsistent level parsing",
+        "JSON output keys with quotes/special chars produced invalid JSON"
+      ],
+      "quality_metrics": {
+        "test_count": 40,
+        "test_status": "all_passing",
+        "build_status": "success",
+        "critical_fixes_count": 3,
+        "cleanup_fixes_count": 1
+      }
+    },
       "fixes_applied": [
         "Fixed build.zig for Zig 0.16.0 module-based API compatibility",
         "Restored main functionality from backup with simplified argument parsing",
@@ -120,6 +142,26 @@
       }
     },
     "npm-outdated-check": {
+      "review_count": 7,
+      "last_review_date": "2026-06-15",
+      "current_branch": "fix/cache-race-glob-validation-prerelease-versions",
+      "pr_link": "https://github.com/sulthonzh/npm-outdated-check/pull/new/fix/cache-race-glob-validation-prerelease-versions",
+      "pr_status": "submitted",
+      "fixes_applied": [
+        "Fixed cache race condition: constructor called async loadCache() without awaiting",
+        "Fixed config validation rejecting glob patterns in exclude list (@types/*, eslint-*)",
+        "Fixed validateVersion() regex rejecting prerelease versions (1.0.0-beta.1, etc.)",
+        "Fixed pre-existing test failures referencing volatile /tmp/ paths"
+      ],
+      "quality_metrics": {
+        "test_count": 36,
+        "test_status": "all_passing",
+        "build_status": "success",
+        "critical_fixes_count": 3,
+        "test_fixes_count": 2
+      }
+    },
+    "_npm_outdated_prev": {
       "review_count": 5,
       "last_review_date": "2026-06-12",
       "current_branch": "eslint-build-fixes",
@@ -197,72 +239,63 @@
       }
     },
     "dotenv-schema": {
-      "review_count": 5,
-      "last_review_date": "2026-06-12",
-      "pr_status": "completed",
-      "commit_hash": "61e7b423",
+      "review_count": 3,
+      "last_review_date": "2026-06-14",
+      "pr_status": "submitted",
+      "pr_link": "https://github.com/sulthonzh/dotenv-schema/pull/7",
+      "pr_branch": "fix/path-validation-yaml-indent-env-resolution",
+      "commit_hash": "7beab05",
       "fixes_applied": [
-        "Fixed logical error in quickScan function",
-        "Removed dangerous file: URL protocol support",
-        "Added 5 new critical secret detection patterns",
-        "Enhanced input validation with size limits",
-        "Improved key validation with regex enforcement",
-        "Safer escape sequence handling to prevent injection attacks",
-        "Optimized redact function with substring operations",
-        "Confirmed all tests passing (68/68 tests across 14 suites)",
-        "Verified TypeScript compilation successful (no lint errors)",
-        "Validated environment validation and secret detection capabilities"
+        "Rewrote isValidFilePath — was blocking ../, ~, and paths outside cwd/tmp/var/etc, making tool unusable",
+        "Fixed Kubernetes ConfigMap YAML indentation — data entries at 4-space under root-level data: key",
+        "Fixed resolveEnvironmentSchema misidentification — flat schema with key 'production' treated as EnvironmentSchema",
+        "Fixed diff() false type mismatch for boolean 1/0 values",
+        "Added isEnvironmentSchema() structural detection helper"
       ],
-      "security_improvements": [
-        "Fixed logical error in quickScan function",
-        "Removed dangerous file: URL protocol",
-        "Added 5 new critical secret detection patterns",
-        "Enhanced input validation with size limits",
-        "Improved key validation with regex enforcement",
-        "Safer escape sequence processing",
-        "Consistent content validation across functions"
-      ],
-      "performance_improvements": [
-        "Optimized redact function with substring operations",
-        "Enhanced quickScan performance",
-        "Faster secret detection logic",
-        "Improved parsing efficiency"
+      "critical_bugs_fixed": [
+        "isValidFilePath blocked all legitimate non-cwd paths — tool couldn't read ../.env or /home/user/.env",
+        "resolveEnvironmentSchema misidentified flat schemas containing env-named keys",
+        "Kubernetes ConfigMap YAML had wrong indentation"
       ],
       "quality_metrics": {
-        "test_count_before": 63,
-        "test_count_after": 63,
-        "security_improvements_count": 6,
-        "performance_improvements_count": 4,
-        "new_secret_patterns_count": 5,
+        "test_count": 61,
+        "test_status": "all_passing",
         "build_status": "success",
-        "final_review_status": "all_tests_passing",
-        "lint_status": "clean",
-        "functionality_status": "complete"
+        "critical_fixes_count": 3,
+        "compatibility_fixes_count": 1
       }
     },
     "envguard": {
-      "review_count": 2,
-      "last_review_date": "2026-06-12",
+      "review_count": 5,
+      "last_review_date": "2026-06-15",
       "pr_status": "submitted",
-      "pr_branch": "security-enhancement-2026",
-      "commit_hash": "5a9e2f8",
+      "pr_link": "https://github.com/sulthonzh/envguard/pull/fix/critical-bugs-data-corruption-backup-restore",
+      "pr_branch": "fix/critical-bugs-data-corruption-backup-restore",
+      "commit_hash": "ec43f09",
       "fixes_applied": [
-        "Enhanced security validation with comprehensive path protection against traversal attacks",
-        "Added 10 new secret detection patterns for modern services (Vercel, Netlify, GitHub App, etc.)",
-        "Improved secret redaction with service-specific patterns for better security",
-        "Enhanced README with comprehensive examples, troubleshooting section, and CI/CD integration",
-        "Updated dependencies to more stable versions while maintaining compatibility",
-        "Enhanced file path validation with comprehensive dangerous pattern detection",
-        "Improved error handling for security scenarios and edge cases",
-        "Added protection against path traversal and injection attacks"
+        "Fixed CRITICAL escape sequence data corruption in double-quoted values",
+        "Fixed double-counted empty values in strict mode causing false positives",
+        "Fixed unquoted value corruption losing quotes and special characters",
+        "Removed dead code and TypeScript type issues in init command",
+        "Enhanced value re-quoting logic to preserve formatting",
+        "Enhanced inline comment parsing with more flexible regex",
+        "Maintained comprehensive backup/restore functionality for safety"
+      ],
+      "critical_vulnerabilities_fixed": [
+        "Escape sequence data corruption (CRITICAL) - Fixed by preserving unknown escape sequences",
+        "Double-counting empty values in strict mode - Fixed by removing duplicate logic",
+        "Unquoted value corruption - Fixed by implementing requoteValue() function",
+        "TypeScript type errors and dead code - Fixed by cleaning up init command"
       ],
       "security_improvements": [
-        "Enhanced file path validation with comprehensive pattern matching",
-        "Added protection against path traversal and injection attacks",
-        "Improved secret redaction with service-specific patterns",
-        "Enhanced error handling for security scenarios",
-        "Added comprehensive dangerous pattern detection"
+        "Fixed escape sequence data corruption preventing credential loss",
+        "Enhanced input validation preventing false positives in strict mode",
+        "Improved data integrity preserving original value formatting",
+        "Maintained comprehensive secret detection and redaction",
+        "Enhanced file safety with backup/restore functionality"
       ],
+      "critical_fixes_count": 4,
+      "code_quality_improvements": 3,
       "documentation_improvements": [
         "Comprehensive examples section with practical usage scenarios",
         "Detailed troubleshooting guide for common issues",
@@ -274,41 +307,25 @@
       "critical_fixes_count": 2
     },
     "dotforge": {
-      "review_count": 2,
-      "last_review_date": "2026-06-11",
-      "pr_status": "ready",
-      "pr_branch": "feature/action-fixes",
-      "commit_hash": "4431db5",
+      "review_count": 5,
+      "last_review_date": "2026-06-15",
+      "pr_status": "submitted",
+      "pr_link": "https://github.com/sulthonzh/dotforge/pull/new/fix/cleanup-trap-security-validation-improvements",
+      "pr_branch": "fix/cleanup-trap-security-validation-improvements",
+      "commit_hash": "d568320",
       "fixes_applied": [
-        "Created missing action.yml GitHub Action configuration",
-        "Fixed shell script regex syntax errors in docker-entrypoint.sh",
-        "Added proper default values for all optional inputs",
-        "Enhanced input validation with safer patterns",
-        "Fixed cleanup function execution",
-        "Improved error handling and logging",
-        "Added comprehensive input validation for security"
-      ],
-      "security_improvements": [
-        "Enhanced input validation to prevent shell injection",
-        "Added numeric validation for ports and file counts",
-        "Fixed regex patterns for safer character detection",
-        "Improved path traversal protection",
-        "Enhanced error handling with specific security messages",
-        "Fixed cleanup function to properly clean up resources"
+        "CRITICAL: Moved cleanup trap before docker context creation, registry login, and docker prune — SSH keys left on runner if those failed",
+        "Added validate_input() for pre_deployment_command_args — only user input not validated",
+        "Fixed prune warning message claiming volumes are removed (they arent without --volumes flag)",
+        "Bumped docker-compose v2.29.2 to v2.30.3"
       ],
       "critical_fixes": [
-        "Missing action.yml file - action was not functional as GitHub Action",
-        "Syntax errors in docker-entrypoint.sh - prevented script execution",
-        "Undefined variable errors - caused script failures",
-        "Unsafe regex patterns - security vulnerability",
-        "Broken cleanup logic - resource leaks"
+        "Cleanup trap set after docker prune and registry login — SSH key material left on runner on failure"
       ],
       "quality_metrics": {
-        "test_count_before": 0,
-        "test_count_after": 1,
-        "security_improvements_count": 5,
-        "critical_fixes_count": 5,
-        "code_quality_improvements": 4,
+        "critical_fixes_count": 1,
+        "validation_fixes_count": 1,
+        "docs_fixes_count": 1,
         "build_status": "success"
       }
     },
@@ -338,74 +355,82 @@
       }
     },
     "gitpanic": {
-      "review_count": 2,
-      "last_review_date": "2026-06-13",
-      "pr_status": "completed",
-      "commit_hash": "c44a993",
+      "review_count": 5,
+      "last_review_date": "2026-06-15",
+      "pr_status": "submitted",
+      "pr_link": "https://github.com/sulthonzh/gitpanic/commit/68761fa",
+      "pr_branch": "main",
+      "commit_hash": "68761fa",
       "fixes_applied": [
-        "Fixed test hanging issues by adding timeout handling to git commands (15-second timeout)",
-        "Improved error handling for remote operations to prevent hanging",
-        "Updated dependencies to latest stable versions",
-        "Enhanced StatusAnalyzer with better timeout management",
-        "Added proper timeout configurations to all test files",
-        "Created debug script for testing detector functionality",
-        "Enhanced GitExecutor with timeout protection and error handling",
-        "Improved remote operation handling with graceful failure modes"
+        "CRITICAL: Fixed findForcePush() method not using branchName parameter — was filtering all entries instead of branch-specific",
+        "Enhanced force push detection patterns to include remote errors (GH001, large files, non-fast-forward), general force push patterns",
+        "Fixed timeline branch operations parsing to handle branch deletion and renaming scenarios",
+        "Added comprehensive error handling for force push detection edge cases",
+        "Previous round: Removed unused dependencies (ink, react, ink-select-input) — active CLI never imports them",
+        "Previous round: Removed jsx/tsconfig settings (react-jsx, jsxImportSource: ink) — no JSX in codebase",
+        "Previous round: Fixed WrongBranchCommitDetector false positives, DroppedStashDetector description, cleanup build artifacts"
       ],
-      "reliability_improvements": [
-        "Added 15-second timeout protection to all git commands",
-        "Enhanced error handling for network and remote operations",
-        "Improved test timeout configurations for better reliability",
-        "Added proper timeout handling for long-running git operations",
-        "Graceful handling of remote operation failures and timeouts"
+      "critical_fixes": [
+        "Force push detection false negatives — fixed branch-specific filtering and comprehensive pattern matching",
+        "Timeline parsing incomplete — added support for branch deletion and renaming scenarios"
       ],
       "quality_metrics": {
-        "cli_functionality": "perfect",
-        "timeout_handling": "implemented",
-        "error_handling": "enhanced",
-        "dependency_updates": "completed",
-        "test_reliability": "improved",
+        "test_count": 10,
+        "test_status": "executor(6/6)+reflog(4/4) passing, core/detectors have pre-existing hang",
         "build_status": "success",
-        "remote_operations": "graceful_failure",
-        "disaster_detection": "fully_functional"
+        "critical_fixes_count": 2,
+        "false_positive_fixes_count": 2,
+        "cleanup_lines_removed": 305
       }
     },
     "git-conflicts": {
-      "review_count": 4,
-      "last_review_date": "2026-06-13",
-      "pr_status": "completed",
-      "pr_branch": "main",
-      "commit_hash": "8aebba36",
+      "review_count": 7,
+      "last_review_date": "2026-06-14",
+      "pr_status": "submitted",
+      "pr_link": "https://github.com/sulthonzh/git-conflicts/pull/11",
+      "pr_branch": "fix/merge-state-detection-whitelist-bypass-editor-errors",
+      "commit_hash": "4d3a335",
       "fixes_applied": [
-        "Fixed critical test configuration issues preventing proper test execution",
-        "Corrected Jest mock setup for file system operations",
-        "Fixed ProgressTracker API usage in tests",
-        "Enhanced test reliability and maintainability",
-        "Fixed 2 TypeScript compilation errors in test file (BigInt type issues)",
-        "Added proper Stats import from fs module instead of using any types"
+        "Fixed getMergeState() false-positive: used Set('U','A','D') checking individual chars — matched non-conflict states like AD (staged add + working tree deletion). Now checks specific two-char conflict combos per git porcelain format.",
+        "Fixed parseEditorCommand() whitelist bypass: command.split('.')[0] allowed code.evil or vim.malicious to pass. Now only strips known executable extensions (.exe, .app, .bat, .cmd, .com).",
+        "Fixed resolveFile() silently swallowing ENOENT from missing editor binary — user got confusing 'conflict markers still present' on unedited file. Now distinguishes fatal editor errors from non-zero exit codes.",
+        "Previous round: Fixed path mismatch in isFileStaged/isFileModified/isFileConflicted",
+        "Previous round: Fixed parseEditorCommand regex blocking notepad++",
+        "Previous round: Fixed jest.config.js moduleNameMapping typo"
       ],
-      "testing_improvements": [
-        "Fixed Jest configuration for proper file system mocking",
-        "Corrected existsSync and stat function mocking",
-        "Fixed ProgressTracker API usage (getProgress().percent vs getPercentage())",
-        "Enhanced test reliability and maintainability",
-        "Enhanced type safety for fs.stat mocks in test suite",
-        "All 17 tests now passing with clean ESLint status",
-        "Build completed successfully with proper TypeScript compilation"
+      "critical_fixes": [
+        "getMergeState() false-positive on AD status (staged add + deleted from working tree)",
+        "parseEditorCommand() whitelist bypass via dot-split (code.evil passes as 'code')",
+        "resolveFile() silently swallowed ENOENT — confusing error on missing editor"
       ],
       "quality_metrics": {
         "test_count": 17,
         "test_status": "all_passing",
-        "lint_status": "clean",
         "build_status": "success",
-        "testing_improvements_count": 4
+        "critical_fixes_count": 3
       }
     },
     "docker-remote-deployment-action": {
-      "review_count": 2,
-      "last_review_date": "2026-06-12",
-      "current_branch": "main",
-      "commit_hash": "2fb1a2a2",
+      "review_count": 3,
+      "last_review_date": "2026-06-14",
+      "current_branch": "fix/bash-shell-prune-hang-validation",
+      "pr_link": "https://github.com/sulthonzh/docker-remote-deployment-action/pull/37",
+      "pr_status": "submitted",
+      "commit_hash": "3b695158",
+      "critical_fixes": [
+        "#!/bin/sh with bash-only [[ =~ ]] and pipefail — crashes on Alpine/busybox ash",
+        "docker system prune -a without -f — hangs forever in non-interactive CI",
+        "Path traversal grep regex '\\\\..\\' didn't match '..' — non-functional detection",
+        "Shell metacharacter regex broken single-quote escaping — malformed pattern",
+        "INPUT_KEEP_FILES regex validation before default assignment — set -u crash"
+      ],
+      "quality_metrics": {
+        "critical_fixes_count": 2,
+        "validation_fixes_count": 3,
+        "build_status": "success",
+        "shell_compatibility": "fixed"
+      }
+    }
       "fixes_applied": [
         "Enhanced README with comprehensive examples and security features",
         "Improved action.yml with detailed descriptions and examples",
@@ -440,7 +465,7 @@
       }
     }
   },
-  "total_reviews": 68,
+  "total_reviews": 75,
   "active_repos": 9,
   "rotation_order": [
     "docker-remote-deployment-action",
@@ -454,7 +479,8 @@
     "git-conflicts"
   ],
   "next_repo": "git-conflicts",
-  "last_updated": "2026-06-13T02:15:00+07:00",
-  "last_cycle_summary": "Completed TelyX review with comprehensive ESLint configuration and code quality improvements. Added comprehensive ESLint configuration for TypeScript projects with proper rule set. Fixed trailing whitespace and formatting issues across all files. Resolved variable shadowing issues in middleware files by renaming conflicting variables. Added NodeJS globals to ESLint configuration to resolve 'NodeJS is not defined' errors. Cleaned up unused variables and console statements to improve code quality. Reduced ESLint errors from 187 to manageable level while maintaining all 32 tests passing. Enhanced code quality and maintainability with proper TypeScript linting rules. Repository now has robust ESLint configuration for future development with automated code formatting and quality enforcement. Project is production-ready with enhanced code quality standards and maintainability."
+  "last_updated": "2026-06-15T14:07:00+07:00",
+  "last_cycle_summary": "Completed gitpanic 5th round. Fixed critical force push detection bug (method not using branch parameter, incomplete patterns) and timeline parsing issues (branch deletion/renaming support). Both issues would have caused false negatives in disaster detection."
+}
 }
 }

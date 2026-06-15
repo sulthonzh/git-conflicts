@@ -1,0 +1,20 @@
+{
+  "name": "skiplist-x",
+  "version": "1.0.0",
+  "description": "Zero-dep probabilistic skip list with O(log n) average-case search, insert, and delete. Range queries, custom comparators, iterators, and serialization.",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "skiplist-x": "src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test test/index.test.js"
+  },
+  "keywords": ["skiplist", "skip-list", "data-structure", "probabilistic", "sorted", "indexed"],
+  "license": "MIT",
+  "author": "sulthonzh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sulthonzh/skiplist-x"
+  }
+}

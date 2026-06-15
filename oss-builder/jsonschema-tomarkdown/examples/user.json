@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/user.json",
+  "title": "User Profile",
+  "description": "Represents a user in the system with profile information.",
+  "type": "object",
+  "required": ["id", "email", "name"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Unique user identifier",
+      "minimum": 1
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "User's email address",
+      "minLength": 5,
+      "maxLength": 255
+    },
+    "name": {
+      "type": "string",
+      "description": "Full display name",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "role": {
+      "type": "string",
+      "enum": ["admin", "editor", "viewer"],
+      "default": "viewer",
+      "description": "Permission level"
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 13,
+      "maximum": 120,
+      "description": "User's age"
+    },
+    "address": {
+      "$ref": "#/$defs/Address",
+      "description": "User's mailing address"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "maxItems": 20,
+      "description": "Arbitrary tags"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "theme": { "type": "string", "enum": ["light", "dark"], "default": "light" },
+        "notifications": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
+    "deprecated_field": {
+      "type": "string",
+      "deprecated": true,
+      "description": "Use 'name' instead"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Address": {
+      "type": "object",
+      "required": ["street", "city"],
+      "properties": {
+        "street": { "type": "string", "description": "Street address" },
+        "city": { "type": "string", "description": "City name" },
+        "zip": { "type": "string", "pattern": "^\\d{5}(-\\d{4})?$" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": 1,
+      "email": "alice@example.com",
+      "name": "Alice Wonderland",
+      "role": "admin"
+    }
+  ]
+}

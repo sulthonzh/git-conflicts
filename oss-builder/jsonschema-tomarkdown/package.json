@@ -1,0 +1,34 @@
+{
+  "name": "jsonschema-tomarkdown",
+  "version": "1.0.0",
+  "description": "Generate human-readable markdown docs from JSON Schema files",
+  "main": "src/index.js",
+  "bin": {
+    "jsonschema-tomd": "src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test test/index.test.js"
+  },
+  "keywords": [
+    "json-schema",
+    "markdown",
+    "documentation",
+    "docs",
+    "generator",
+    "jsonschema"
+  ],
+  "license": "MIT",
+  "author": "sulthonzh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sulthonzh/jsonschema-tomarkdown.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ]
+}
