@@ -26,7 +26,6 @@ program
     const resolver = new ConflictResolver(gitOps);
 
     try {
-      // Handle abort
       if (options.abort) {
         if (options.json) {
           await gitOps.abortMerge();
@@ -39,13 +38,11 @@ program
         return;
       }
 
-      // Handle status
       if (options.status) {
         await showStatus(gitOps, options.json);
         return;
       }
 
-      // Default: Resolve conflicts
       await resolveConflicts(gitOps, resolver, options);
     } catch (error) {
       if (error instanceof Error) {
@@ -172,7 +169,6 @@ async function resolveConflicts(
       const conflictCount = await resolver.getConflictCount(file);
       
       if (conflictCount === -1) {
-        // File is oversized
         oversizedFiles.push(file);
         console.log(chalk.yellow(`⚠️  ${file} (file too large, skipped)`));
         console.log(chalk.gray('  Skipping to next file...'));

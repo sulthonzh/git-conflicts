@@ -173,8 +173,7 @@ export class ConflictResolver {
   async validateResolution(filePath: string): Promise<{ valid: boolean; reason?: string }> {
     try {
       const fullPath = resolve(filePath);
-      
-      // Check if file exists
+
       if (!existsSync(fullPath)) {
         return {
           valid: false,
@@ -182,7 +181,6 @@ export class ConflictResolver {
         };
       }
       
-      // Get file stats to check size
       const stats = await stat(fullPath);
       if (stats.size > MAX_FILE_SIZE) {
         return {
@@ -207,7 +205,6 @@ export class ConflictResolver {
       // Read file with explicit encoding to prevent encoding issues
       const content = await readFile(fullPath, { encoding: 'utf8' });
 
-      // Check for empty file (edge case)
       if (content.length === 0) {
         return {
           valid: false,
@@ -238,7 +235,6 @@ export class ConflictResolver {
     try {
       const fullPath = resolve(filePath);
       
-      // Check file size before reading
       if (existsSync(fullPath)) {
         const stats = await stat(fullPath);
         if (stats.size > MAX_FILE_SIZE) {

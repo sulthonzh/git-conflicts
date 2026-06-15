@@ -26,10 +26,6 @@ export class GitOperations {
         .map((f: string) => f.trim())
         .filter((f: string) => f.length > 0);
 
-      if (!Array.isArray(files)) {
-        throw new Error('Invalid diff output format');
-      }
-
       return files;
     } catch (error) {
       if (error instanceof Error) {
