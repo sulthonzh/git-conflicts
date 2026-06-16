@@ -1,0 +1,33 @@
+{
+  "name": "queue-x",
+  "version": "1.0.0",
+  "description": "Zero-dependency queue implementations with multiple strategies",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "queue-x": "./cli.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "node cli.js demo",
+    "info": "node cli.js info"
+  },
+  "keywords": [
+    "queue",
+    "data-structure",
+    "fifo",
+    "priority-queue",
+    "circular-queue",
+    "double-ended-queue",
+    "stack",
+    "deque",
+    "zero-dependency",
+    "typescript",
+    "esm"
+  ],
+  "author": "sulthonzh",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
