@@ -1,0 +1,5 @@
+<<<<<<< HEAD
+This is our version
+=======
+This is their version
+>>>>>>>
