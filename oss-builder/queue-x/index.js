@@ -101,8 +101,18 @@ class PriorityQueue {
   #items = new Array();
   #comparator = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 
-  constructor({ iterable = [], comparator } = {}) {
-    this.#comparator = comparator || this.#comparator;
+  constructor(options = {}) {
+    let iterable = [];
+    
+    // Handle both PriorityQueue([1, 2, 3]) and PriorityQueue({ iterable: [1, 2, 3] })
+    if (Array.isArray(options)) {
+      iterable = options;
+      this.#comparator = (a, b) => (a < b) ? -1 : (a > b) ? 1 : 0;
+    } else {
+      iterable = options.iterable || [];
+      this.#comparator = options.comparator || ((a, b) => (a < b) ? -1 : (a > b) ? 1 : 0);
+    }
+    
     if (iterable) {
       for (const item of iterable) {
         this.enqueue(item);
