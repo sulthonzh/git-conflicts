@@ -39,7 +39,8 @@ function testBatchProcess() {
   assert(batches.length === 4, 'Should create correct number of batches');
   assert(batches[0].join(',') === '2,4,6', 'First batch should be correct');
   assert(batches[1].join(',') === '8,10,12', 'Second batch should be correct');
-  assert(batches[2].join(',') === '14,16', 'Last batch should handle remainder');
+  assert(batches[2].join(',') === '14,16,18', 'Third batch should be correct');
+  assert(batches[3].join(',') === '20', 'Fourth batch should handle remainder');
   
   // Test with batch size 1
   const queue2 = new Queue([1, 2, 3]);

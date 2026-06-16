@@ -29,7 +29,7 @@ assert(pq2.peek() === 1, 'Peek should return highest priority item');
 
 // Test custom comparator (max priority)
 const maxPq = new PriorityQueue({
-  comparator: (a, b) => a > b  // Changed to > for max priority
+  comparator: (a, b) => a > b ? -1 : a < b ? 1 : 0  // Max priority: larger numbers first
 });
 
 maxPq.enqueue(5);
@@ -49,7 +49,7 @@ assert(maxPq.dequeue() === 1, 'Fifth max dequeue');
 
 // Test string comparison
 const stringPq = new PriorityQueue({
-  comparator: (a, b) => a.localeCompare(b) > 0  // Changed to return boolean
+  comparator: (a, b) => a.localeCompare(b)  // Alphabetical order: a comes before b
 });
 
 stringPq.enqueue('banana');
@@ -62,7 +62,7 @@ assert(stringPq.dequeue() === 'cherry', 'Third string');
 
 // Test reverse comparator
 const reversePq = new PriorityQueue({
-  comparator: (a, b) => b.localeCompare(a) > 0  // Changed to return boolean
+  comparator: (a, b) => b.localeCompare(a)  // Reverse alphabetical: z comes before a
 });
 
 reversePq.enqueue('banana');

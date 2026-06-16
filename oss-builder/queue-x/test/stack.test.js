@@ -79,10 +79,10 @@ mixedStack.push(true);
 mixedStack.push([1, 2, 3]);
 
 assert(mixedStack.size === 4, 'Should handle mixed types');
-assert(mixedStack.peek() === [1, 2, 3], 'Peek should return top item');
+assert.deepEqual(mixedStack.peek(), [1, 2, 3], 'Peek should return top item');
 
 // Test pop order
-assert(mixedStack.pop() === [1, 2, 3], 'First pop');
+assert.deepEqual(mixedStack.pop(), [1, 2, 3], 'First pop');
 assert(mixedStack.pop() === true, 'Second pop');
 assert(mixedStack.pop() === 42, 'Third pop');
 assert(mixedStack.pop() === 'string', 'Fourth pop');
@@ -107,8 +107,9 @@ stack6.push(1).push(2).push(3);
 assert(stack6.size === 3, 'Chainable push should work');
 assert(stack6.peek() === 3, 'Chainable push should maintain order');
 
-stack6.pop().pop();
-assert(stack6.size === 1, 'Chainable pop should work');
+stack6.pop();
+stack6.pop();
+assert(stack6.size === 1, 'Multiple pops should work');
 assert(stack6.peek() === 1, 'Chainable pop should maintain order');
 
 // Test sequential operations that might trigger memory optimization

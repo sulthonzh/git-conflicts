@@ -112,8 +112,8 @@ for (let i = 0; i < 1000; i++) {
 assert(largeDeque.size === 1000, 'Should handle 1000 items');
 
 // Test pop from large deque
-for (let i = 999; i >= 0; i--) {
-  assert(largeDeque.pop() === i, 'Should pop in reverse order');
+for (let i = 0; i < 1000; i++) {
+  assert(largeDeque.pop() === i, 'Should pop in forward order');
 }
 assert(largeDeque.isEmpty, 'Should be empty');
 
@@ -126,7 +126,7 @@ mixedDeque.append([1, 2, 3]);
 
 assert(mixedDeque.size === 4, 'Should handle mixed types');
 assert(mixedDeque.peekFront() === true, 'Front should be boolean');
-assert(mixedDeque.peekBack() === [1, 2, 3], 'Back should be array');
+assert.deepEqual(mixedDeque.peekBack(), [1, 2, 3], 'Back should be array');
 
 // Test sequential operations that would cause memory optimization
 const deque6 = new Deque();

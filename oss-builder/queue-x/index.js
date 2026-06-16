@@ -99,7 +99,7 @@ class Queue {
  */
 class PriorityQueue {
   #items = new Array();
-  #comparator = (a, b) => a < b;
+  #comparator = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 
   constructor({ iterable = [], comparator } = {}) {
     this.#comparator = comparator || this.#comparator;
@@ -123,10 +123,8 @@ class PriorityQueue {
   /** Peek at the front item (highest priority) without removing it */
   peek() {
     if (this.isEmpty) return undefined;
-    // For max priority, we need to find the actual highest priority item
-    return this.#items.reduce((max, item) => {
-      return this.#comparator(item, max) ? item : max;
-    }, this.#items[0]);
+    // Items are sorted with highest priority at index 0
+    return this.#items[0];
   }
 
   /** Get the comparator function */
@@ -146,36 +144,17 @@ class PriorityQueue {
 
   /** Add item with priority */
   enqueue(item) {
-    let left = 0;
-    let right = this.#items.length;
-
-    // Binary search for insertion position (using comparator for priority)
-    while (left < right) {
-      const mid = (left + right) >> 1;
-      if (this.#comparator(item, this.#items[mid])) {
-        // Item has higher priority than mid, belongs before it
-        right = mid;
-      } else {
-        // Item has lower or equal priority, belongs after mid
-        left = mid + 1;
-      }
-    }
-
-    this.#items.splice(left, 0, item);
+    this.#items.push(item);
+    // Sort items so highest priority is at index 0
+    this.#items.sort(this.#comparator);
     return this;
   }
 
   /** Remove and return the highest priority item */
   dequeue() {
     if (this.isEmpty) return undefined;
-    // Find the highest priority item (which may not be at index 0)
-    let maxIndex = 0;
-    for (let i = 1; i < this.#items.length; i++) {
-      if (this.#comparator(this.#items[i], this.#items[maxIndex])) {
-        maxIndex = i;
-      }
-    }
-    return this.#items.splice(maxIndex, 1)[0];
+    // The highest priority item is at index 0 due to binary insertion
+    return this.#items.splice(0, 1)[0];
   }
 
   /** Get the priority of an item */
@@ -364,7 +343,7 @@ class Deque {
   constructor(iterable = []) {
     if (iterable) {
       for (const item of iterable) {
-        this.push(item);
+        this.append(item);
       }
     }
   }
