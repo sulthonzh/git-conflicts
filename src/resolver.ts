@@ -248,7 +248,7 @@ export class ConflictResolver {
       
       const content = await readFile(fullPath, 'utf-8');
       return this.gitOps.countConflicts(content);
-    } catch (error) {
+    } catch {
       // File might be locked, permissions issue, or other read error
       return -2; // Special value for unreadable files
     }

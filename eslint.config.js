@@ -5,7 +5,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 export default [
   js.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', '!src/**/*.test.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -30,6 +30,6 @@ export default [
       'no-var': 'error',
       'preserve-caught-error': 'off',
     },
-    ignores: ['src/**/*.test.ts', '**/*.d.ts'],
+    ignores: ['src/**/*.test.ts'],
   },
 ];
