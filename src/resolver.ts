@@ -230,16 +230,19 @@ export class ConflictResolver {
 
   /**
    * Get the number of conflict markers in a file
+   * Returns -1 for oversized files, 0 for missing/unreadable files
    */
   async getConflictCount(filePath: string): Promise<number> {
     try {
       const fullPath = resolve(filePath);
       
-      if (existsSync(fullPath)) {
-        const stats = await stat(fullPath);
-        if (stats.size > MAX_FILE_SIZE) {
-          return -1; // Special value for oversized files
-        }
+      if (!existsSync(fullPath)) {
+        return 0;
+      }
+      
+      const stats = await stat(fullPath);
+      if (stats.size > MAX_FILE_SIZE) {
+        return -1; // Special value for oversized files
       }
       
       const content = await readFile(fullPath, 'utf-8');

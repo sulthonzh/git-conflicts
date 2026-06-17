@@ -1,6 +1,6 @@
-import { GitOperations } from '../src/git';
-import { ProgressTracker } from '../src/progress';
-import { ConflictResolver } from '../src/resolver';
+import { GitOperations } from './git';
+import { ProgressTracker } from './progress';
+import { ConflictResolver } from './resolver';
 import fs, { Stats } from 'fs';
 import fsPromises from 'fs/promises';
 
@@ -45,6 +45,13 @@ describe('ProgressTracker', () => {
     const tracker = new ProgressTracker(1);
     expect(tracker.isComplete()).toBe(false);
     tracker.increment();
+    expect(tracker.isComplete()).toBe(true);
+  });
+
+  it('should handle zero total without division by zero', () => {
+    const tracker = new ProgressTracker(0);
+    expect(tracker.getProgress().percent).toBe(100);
+    expect(tracker.getRemaining()).toBe(0);
     expect(tracker.isComplete()).toBe(true);
   });
 
