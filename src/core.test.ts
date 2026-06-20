@@ -1,6 +1,6 @@
-import { GitOperations } from '../src/git';
-import { ProgressTracker } from '../src/progress';
-import { ConflictResolver } from '../src/resolver';
+import { GitOperations } from './git';
+import { ProgressTracker } from './progress';
+import { ConflictResolver } from './resolver';
 import fs, { Stats } from 'fs';
 import fsPromises from 'fs/promises';
 
