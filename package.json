@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "test:coverage": "jest --coverage --silent",
+    "test:coverage": "jest --coverage --silent --maxWorkers=1",
     "test:quick": "jest --maxWorkers=1 --silent",
     "test:list": "jest --listTests",
     "lint": "eslint src --ext .ts",
