@@ -32,18 +32,18 @@ import { ConflictResolver } from './resolver';
 import { ProgressTracker } from './progress';
 
 jest.mock('./git');
-const mockProgressTracker = {
-  increment: jest.fn(),
-  getProgress: jest.fn().mockReturnValue({
-    current: 1,
-    total: 2,
-    percent: 50,
-  }),
-  isComplete: jest.fn().mockReturnValue(false),
-  getRemaining: jest.fn().mockReturnValue(1),
-};
 jest.mock('./progress', () => ({
-  ProgressTracker: jest.fn().mockImplementation(() => mockProgressTracker),
+  ProgressTracker: jest.fn().mockImplementation(function(this: any, total: number) {
+    this.increment = jest.fn();
+    this.getProgress = jest.fn().mockReturnValue({
+      current: 1,
+      total: total || 2,
+      percent: 50,
+    });
+    this.isComplete = jest.fn().mockReturnValue(false);
+    this.getRemaining = jest.fn().mockReturnValue(1);
+    return this;
+  }),
 }));
 jest.mock('./resolver');
 
@@ -54,8 +54,6 @@ const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockProgressTracker.increment.mockClear();
-  mockProgressTracker.getProgress.mockClear();
 });
 
 describe('showStatus function', () => {
