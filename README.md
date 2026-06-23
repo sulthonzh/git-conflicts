@@ -73,10 +73,145 @@ Output:
 Run "git commit" to complete the merge.
 ```
 
+### Resolve with auto-staging
+
+```bash
+git-conflicts --stage
+```
+
+This automatically runs `git add` on each file after resolution, so you can run `git commit` directly when done.
+
 ### Abort current merge
 
 ```bash
 git-conflicts --abort
+```
+
+### JSON output for CI/CD
+
+```bash
+git-conflicts --status --json
+```
+
+Output:
+```json
+{
+  "hasConflicts": true,
+  "files": ["src/app.ts", "src/utils.ts"],
+  "branch": "main",
+  "merging": "feature/login",
+  "mergeState": "merge"
+}
+```
+
+## Real-World Examples
+
+### Example 1: Quick conflict resolution in a feature branch
+
+You're working on a feature branch and `git merge main` resulted in conflicts:
+
+```bash
+$ git merge main
+Auto-merging src/components/Button.tsx
+CONFLICT (content): Merge conflict in src/components/Button.tsx
+Auto-merging src/utils/helpers.ts
+CONFLICT (content): Merge conflict in src/utils/helpers.ts
+Automatic merge failed; fix conflicts and then commit the result.
+
+$ git-conflicts
+🔥 Found 2 merge conflict(s)
+📁 /home/user/my-project (feature/login)
+🔀 Merging: main
+
+📄 src/components/Button.tsx (1 conflict)
+[Your editor opens - you resolve conflicts and save]
+✅ Resolved src/components/Button.tsx (1/2)
+
+📄 src/utils/helpers.ts (1 conflict)
+[Your editor opens - you resolve conflicts and save]
+✅ Resolved src/utils/helpers.ts (2/2)
+
+--- Summary ---
+✅ Resolved: 2/2
+
+🎉 All conflicts resolved!
+Run "git add ." then "git commit" to complete the merge.
+
+$ git add .
+$ git commit
+[feature/login 8f2a3b9] Merge branch 'main' into feature/login
+```
+
+### Example 2: Team workflow with cherry-pick conflicts
+
+Your team uses cherry-pick to backport fixes. When cherry-picking causes conflicts:
+
+```bash
+$ git cherry-pick abc123f
+error: could not apply abc123f... Fix critical bug
+hint: after resolving the conflicts, mark the corrected paths
+hint: with 'git add <paths>' or 'git rm <paths>'
+
+$ git-conflicts --stage
+🔥 Found 1 merge conflict(s)
+📁 /home/user/production-branch (v2.1.x)
+📋 Status: Cherry-pick in progress
+
+📄 src/api/routes.ts (2 conflicts)
+[Editor opens - you keep production-specific changes]
+✅ Resolved & staged src/api/routes.ts (1/1)
+
+--- Summary ---
+✅ Resolved: 1/1
+
+🎉 All conflicts resolved!
+All resolved files staged. Run "git commit" to complete the merge.
+
+$ git commit
+[v2.1.x 7c8d9e0] Fix critical bug
+```
+
+### Example 3: CI/CD pipeline with conflict detection
+
+In a CI/CD pipeline, you want to fail if there would be merge conflicts:
+
+```yaml
+# .github/workflows/conflict-check.yml
+name: Check Merge Conflicts
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  check-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: npm install -g git-conflicts
+      - name: Test merge with main
+        run: |
+          git merge origin/main --no-commit --no-ff
+          conflicts=$(git-conflicts --status --json)
+          if echo "$conflicts" | grep -q '"hasConflicts":true'; then
+            echo "::error::Merge would cause conflicts in these files:"
+            echo "$conflicts" | jq -r '.files[]' | sed 's/^/  - /'
+            exit 1
+          fi
+          git merge --abort
+```
+
+When conflicts are detected, the GitHub Action fails with clear output:
+```
+::error::Merge would cause conflicts in these files:
+  - src/lib/core.ts
+  - src/types/index.ts
+Error: Process completed with exit code 1
 ```
 
 ## Configuration
