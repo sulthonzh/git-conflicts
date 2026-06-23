@@ -56,7 +56,7 @@ program
     }
   });
 
-async function showStatus(gitOps: GitOperations, jsonMode: boolean): Promise<void> {
+export async function showStatus(gitOps: GitOperations, jsonMode: boolean): Promise<void> {
   try {
     const status = await gitOps.getConflictStatus();
 
@@ -102,7 +102,7 @@ async function showStatus(gitOps: GitOperations, jsonMode: boolean): Promise<voi
   }
 }
 
-async function resolveConflicts(
+export async function resolveConflicts(
   gitOps: GitOperations,
   resolver: ConflictResolver,
   options: { json?: boolean; stage?: boolean }
