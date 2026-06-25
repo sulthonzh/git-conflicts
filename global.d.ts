@@ -102,10 +102,6 @@ interface FileConflictStatus {
   conflictCount: number;
 }
 
-// Global constants
-declare const MAX_FILE_SIZE: number;
-declare const SAFE_EDITORS: Set<string>;
-
 // Environment variable types
 interface ProcessEnv {
   [key: string]: string | undefined;
