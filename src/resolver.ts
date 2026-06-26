@@ -106,9 +106,23 @@ export class ConflictResolver {
     // Using split('.')[0] would allow bypasses like "code.evil" or "vim.malicious"
     const command = parts[0];
     const EXEC_EXTENSIONS = ['.exe', '.app', '.bat', '.cmd', '.com'];
-    const baseName = EXEC_EXTENSIONS.some(ext => command.toLowerCase().endsWith(ext))
-      ? command.slice(0, command.lastIndexOf('.'))
-      : command;
+    
+    // Only strip the extension if it's at the very end and is exactly one of the allowed extensions
+    // This prevents bypass attempts like "code.exe.bat" where the whitelist would check "code.exe"
+    // but the actual command executed would be "code.exe.bat"
+    let baseName = command;
+    for (const ext of EXEC_EXTENSIONS) {
+      if (command.toLowerCase().endsWith(ext)) {
+        // Verify that the extension is the only extension (no dots before it)
+        // e.g., "code.bat" is valid, but "code.exe.bat" is not
+        const withoutExt = command.slice(0, -ext.length);
+        if (!withoutExt.includes('.')) {
+          baseName = withoutExt;
+        }
+        break;
+      }
+    }
+    
     if (!SAFE_EDITORS.has(baseName)) {
       throw new Error(`Editor "${command}" is not in the safe list of editors`);
     }
