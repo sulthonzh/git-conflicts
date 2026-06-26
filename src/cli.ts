@@ -11,7 +11,7 @@ const program = new Command();
 program
   .name('git-conflicts')
   .description('Interactive CLI to list and resolve merge conflicts')
-  .version('1.1.0');
+  .version('0.0.18');
 
 program
   .command('resolve', { isDefault: true })
