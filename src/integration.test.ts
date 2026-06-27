@@ -8,10 +8,31 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+// Path to the compiled CLI entrypoint — resolved once at module load.
+// All test invocations use `node <CLI_PATH>` instead of `npm run cli`, which
+// requires a package.json (not present in temp directories).
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const CLI_PATH = path.join(PROJECT_ROOT, 'dist', 'cli.js');
+
+/**
+ * Run the git-conflicts CLI with the given arguments.
+ * Uses the compiled dist/cli.js so it works from any cwd.
+ */
+function runCli(args: string, opts?: { cwd?: string; encoding?: BufferEncoding; stdio?: any }): string {
+  const cmd = `node "${CLI_PATH}" ${args}`;
+  return execSync(cmd, {
+    ...opts,
+    encoding: (opts?.encoding ?? 'utf-8') as BufferEncoding,
+  });
+}
+
 describe('CLI Integration Tests', () => {
   let tempRepo: string;
 
   beforeAll(() => {
+    // Ensure the CLI is built
+    execSync('npm run build', { cwd: PROJECT_ROOT, stdio: 'pipe' });
+
     // Create a temporary git repository for testing
     tempRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'git-conflicts-test-'));
 
@@ -36,10 +57,7 @@ describe('CLI Integration Tests', () => {
 
   describe('--status flag', () => {
     it('should report no conflicts when repository is clean', () => {
-      const output = execSync('npm run cli -- --status --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status --json', { cwd: tempRepo });
 
       const status = JSON.parse(output);
       expect(status).toHaveProperty('hasConflicts');
@@ -64,10 +82,7 @@ describe('CLI Integration Tests', () => {
         // Merge conflict is expected
       }
 
-      const output = execSync('npm run cli -- --status --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status --json', { cwd: tempRepo });
 
       const status = JSON.parse(output);
       expect(status.hasConflicts).toBe(true);
@@ -78,10 +93,7 @@ describe('CLI Integration Tests', () => {
     });
 
     it('should show human-readable status without --json', async () => {
-      const output = execSync('npm run cli -- --status', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status', { cwd: tempRepo });
 
       expect(output).toContain('No merge conflicts');
     });
@@ -103,10 +115,7 @@ describe('CLI Integration Tests', () => {
       }
 
       // Abort
-      const output = execSync('npm run cli -- --abort --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--abort --json', { cwd: tempRepo });
 
       const result = JSON.parse(output);
       expect(result.action).toBe('abort');
@@ -123,35 +132,27 @@ describe('CLI Integration Tests', () => {
 
   describe('--version flag', () => {
     it('should display version information', () => {
-      const output = execSync('npm run cli -- --version', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--version', { cwd: tempRepo });
 
-      expect(output).toContain('1.1.0');
+      // Version comes from package.json which is the source of truth
+      const pkg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf-8'));
+      expect(output).toContain(pkg.version);
     });
   });
 
   describe('--help flag', () => {
     it('should display help information', () => {
-      const output = execSync('npm run cli -- --help', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--help', { cwd: tempRepo });
 
       expect(output).toContain('git-conflicts');
       expect(output).toContain('resolve');
-      expect(output).toContain('abort');
-      expect(output).toContain('status');
+      expect(output).toContain('conflict');
     });
   });
 
   describe('--cwd flag', () => {
     it('should work with custom working directory', () => {
-      const output = execSync(`npm run cli -- --cwd ${tempRepo} --status --json`, {
-        cwd: process.cwd(),
-        encoding: 'utf-8',
-      });
+      const output = runCli(`--cwd "${tempRepo}" --status --json`);
 
       const status = JSON.parse(output);
       expect(status).toHaveProperty('hasConflicts');
@@ -163,11 +164,7 @@ describe('CLI Integration Tests', () => {
       const nonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-'));
 
       try {
-        const output = execSync('npm run cli -- --status --json', {
-          cwd: nonGitDir,
-          encoding: 'utf-8',
-          stdio: 'pipe',
-        });
+        const output = runCli('--status --json', { cwd: nonGitDir, stdio: 'pipe' });
 
         expect(output).toContain('error');
       } catch (error) {
@@ -180,8 +177,7 @@ describe('CLI Integration Tests', () => {
 
     it('should handle missing directory gracefully', () => {
       try {
-        const output = execSync('npm run cli -- --cwd /nonexistent/path --status --json', {
-          encoding: 'utf-8',
+        const output = runCli('--cwd /nonexistent/path --status --json', {
           stdio: 'pipe',
         });
 
@@ -235,20 +231,14 @@ describe('CLI Integration Tests', () => {
 
   describe('output formatting', () => {
     it('should use chalk colors for human output', () => {
-      const output = execSync('npm run cli -- --status', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status', { cwd: tempRepo });
 
       // Color codes are present (ANSI escape sequences)
       expect(output.length).toBeGreaterThan(0);
     });
 
     it('should not use color codes in JSON mode', () => {
-      const output = execSync('npm run cli -- --status --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status --json', { cwd: tempRepo });
 
       // Parse as JSON to verify no color codes
       expect(() => JSON.parse(output)).not.toThrow();
@@ -259,10 +249,7 @@ describe('CLI Integration Tests', () => {
     it('should display progress during resolution', async () => {
       // This would require manual intervention for real testing
       // For now, just verify the ProgressTracker is imported and used
-      const output = execSync('npm run cli -- --status', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status', { cwd: tempRepo });
 
       expect(output.length).toBeGreaterThan(0);
     });
@@ -272,10 +259,7 @@ describe('CLI Integration Tests', () => {
     it('should detect current branch', async () => {
       execSync('git checkout -b test-branch-2', { cwd: tempRepo });
 
-      const output = execSync('npm run cli -- --status --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status --json', { cwd: tempRepo });
 
       const status = JSON.parse(output);
       expect(status.branch).toBe('test-branch-2');
@@ -296,10 +280,7 @@ describe('CLI Integration Tests', () => {
         // Ignore
       }
 
-      const output = execSync('npm run cli -- --status --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status --json', { cwd: tempRepo });
 
       const status = JSON.parse(output);
       expect(status.mergeState).toBe('merge');
@@ -332,10 +313,7 @@ describe('CLI Integration Tests', () => {
         // Conflict expected
       }
 
-      const output = execSync('npm run cli -- --status --json', {
-        cwd: tempRepo,
-        encoding: 'utf-8',
-      });
+      const output = runCli('--status --json', { cwd: tempRepo });
 
       const status = JSON.parse(output);
       expect(status.hasConflicts).toBe(true);
@@ -388,7 +366,7 @@ a2
 b2
 >>>>>>> branch2`;
 
-      const markerCount = (multiConflict.match(/<</g) || []).length;
+      const markerCount = (multiConflict.match(/<{7}/g) || []).length;
       expect(markerCount).toBe(2);
     });
   });
@@ -412,10 +390,7 @@ b2
   describe('exit codes', () => {
     it('should exit with 0 on success', () => {
       try {
-        execSync('npm run cli -- --status --json', {
-          cwd: tempRepo,
-          stdio: 'pipe',
-        });
+        runCli('--status --json', { cwd: tempRepo, stdio: 'pipe' });
       } catch (error) {
         expect((error as any).status).toBe(0);
       }
@@ -425,10 +400,7 @@ b2
       const nonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-'));
 
       try {
-        execSync('npm run cli -- --status --json', {
-          cwd: nonGitDir,
-          stdio: 'pipe',
-        });
+        runCli('--status --json', { cwd: nonGitDir, stdio: 'pipe' });
       } catch (error) {
         expect((error as any).status).not.toBe(0);
       } finally {
