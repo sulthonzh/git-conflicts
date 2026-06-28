@@ -65,17 +65,18 @@ describe('CLI Integration Tests', () => {
     });
 
     it('should report conflicts in JSON format', async () => {
-      // Create a conflict
-      fs.writeFileSync(path.join(tempRepo, 'file.txt'), 'master content');
-      execSync('git add file.txt', { cwd: tempRepo });
-      execSync('git commit -m "Change on master"', { cwd: tempRepo });
-
+      // Create diverged branches that will conflict
       execSync('git checkout -b feature', { cwd: tempRepo });
       fs.writeFileSync(path.join(tempRepo, 'file.txt'), 'feature content');
       execSync('git add file.txt', { cwd: tempRepo });
       execSync('git commit -m "Change on feature"', { cwd: tempRepo });
 
       execSync('git checkout main', { cwd: tempRepo });
+      // Diverge main AFTER creating feature branch so merge can't fast-forward
+      fs.writeFileSync(path.join(tempRepo, 'file.txt'), 'master content');
+      execSync('git add file.txt', { cwd: tempRepo });
+      execSync('git commit -m "Change on master"', { cwd: tempRepo });
+
       try {
         execSync('git merge feature', { cwd: tempRepo, stdio: 'pipe' });
       } catch {
@@ -101,13 +102,18 @@ describe('CLI Integration Tests', () => {
 
   describe('--abort flag', () => {
     it('should abort merge in progress', async () => {
-      // Create a conflict
+      // Create diverged branches to force a non-fast-forward merge
       execSync('git checkout -b test-branch', { cwd: tempRepo });
       fs.writeFileSync(path.join(tempRepo, 'file2.txt'), 'test content');
       execSync('git add file2.txt', { cwd: tempRepo });
       execSync('git commit -m "Add file2"', { cwd: tempRepo });
 
       execSync('git checkout main', { cwd: tempRepo });
+      // Diverge main so the merge can't fast-forward
+      fs.writeFileSync(path.join(tempRepo, 'file2b.txt'), 'main content');
+      execSync('git add file2b.txt', { cwd: tempRepo });
+      execSync('git commit -m "Add file2b"', { cwd: tempRepo });
+
       try {
         execSync('git merge test-branch --no-commit', { cwd: tempRepo });
       } catch {
@@ -274,6 +280,11 @@ describe('CLI Integration Tests', () => {
       execSync('git commit -m "Add merge file"', { cwd: tempRepo });
 
       execSync('git checkout main', { cwd: tempRepo });
+      // Diverge main so the merge can't fast-forward
+      fs.writeFileSync(path.join(tempRepo, 'merge-file-main.txt'), 'main');
+      execSync('git add merge-file-main.txt', { cwd: tempRepo });
+      execSync('git commit -m "Add merge-file-main"', { cwd: tempRepo });
+
       try {
         execSync('git merge merge-test --no-commit', { cwd: tempRepo });
       } catch {
@@ -302,11 +313,17 @@ describe('CLI Integration Tests', () => {
       execSync('git commit -m "Add large file"', { cwd: tempRepo });
 
       execSync('git checkout -b large-file-test', { cwd: tempRepo });
-      fs.writeFileSync(largeFile, Buffer.alloc(11 * 1024 * 1024));
+      // Write DIFFERENT content so git has something to commit
+      fs.writeFileSync(largeFile, Buffer.alloc(12 * 1024 * 1024));
       execSync('git add large-file.bin', { cwd: tempRepo });
-      execSync('git commit -m "Change large file"', { cwd: tempRepo });
+      execSync('git commit -m "Change large file on branch"', { cwd: tempRepo });
 
       execSync('git checkout main', { cwd: tempRepo });
+      // Diverge main so the merge conflicts (can't fast-forward)
+      fs.writeFileSync(largeFile, Buffer.alloc(13 * 1024 * 1024));
+      execSync('git add large-file.bin', { cwd: tempRepo });
+      execSync('git commit -m "Change large file on main"', { cwd: tempRepo });
+
       try {
         execSync('git merge large-file-test', { cwd: tempRepo, stdio: 'pipe' });
       } catch {

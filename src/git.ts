@@ -240,6 +240,13 @@ export class GitOperations {
       }
 
       const gitDir = await this.getAbsoluteGitDir();
+
+      // Check for MERGE_HEAD — present during any merge (even clean ones with --no-commit)
+      const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
+      if (existsSync(mergeHeadPath)) {
+        return 'merge';
+      }
+
       const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
       if (existsSync(rebaseMergeDir)) {
         return 'rebase';
