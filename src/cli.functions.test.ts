@@ -33,17 +33,18 @@ import { ProgressTracker } from './progress';
 
 jest.mock('./git');
 jest.mock('./progress', () => ({
-  ProgressTracker: jest.fn().mockImplementation(function(this: any, total: number) {
-    this.increment = jest.fn();
-    this.getProgress = jest.fn().mockReturnValue({
+  ProgressTracker: jest.fn().mockImplementation((total: number) => ({
+    total,
+    current: 0,
+    increment: jest.fn(),
+    getProgress: jest.fn().mockReturnValue({
       current: 1,
       total: total || 2,
       percent: 50,
-    });
-    this.isComplete = jest.fn().mockReturnValue(false);
-    this.getRemaining = jest.fn().mockReturnValue(1);
-    return this;
-  }),
+    }),
+    isComplete: jest.fn().mockReturnValue(false),
+    getRemaining: jest.fn().mockReturnValue(1),
+  })),
 }));
 jest.mock('./resolver');
 
@@ -193,6 +194,20 @@ describe('resolveConflicts function', () => {
     };
 
     jest.clearAllMocks();
+
+    // Re-establish ProgressTracker mock after clearAllMocks clears implementations
+    (ProgressTracker as jest.Mock).mockImplementation((total: number) => ({
+      total,
+      current: 0,
+      increment: jest.fn(),
+      getProgress: jest.fn().mockReturnValue({
+        current: 1,
+        total: total || 2,
+        percent: 50,
+      }),
+      isComplete: jest.fn().mockReturnValue(false),
+      getRemaining: jest.fn().mockReturnValue(1),
+    }));
   });
 
   afterAll(() => {
@@ -263,7 +278,7 @@ describe('resolveConflicts function', () => {
   });
 
   describe('when conflicts exist in interactive mode', () => {
-    it.skip('should resolve all files successfully', async () => {
+    it('should resolve all files successfully', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts', 'file2.ts'],
@@ -315,7 +330,7 @@ describe('resolveConflicts function', () => {
       expect(mockResolver.resolveFile).toHaveBeenCalled();
     });
 
-    it.skip('should stage files when --stage option is used', async () => {
+    it('should stage files when --stage option is used', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts'],
@@ -332,7 +347,7 @@ describe('resolveConflicts function', () => {
       expect(mockGitOps.stageFile).toHaveBeenCalledWith('file1.ts');
     });
 
-    it.skip('should handle staging failures gracefully', async () => {
+    it('should handle staging failures gracefully', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts'],
@@ -349,7 +364,7 @@ describe('resolveConflicts function', () => {
       expect(mockGitOps.stageFile).toHaveBeenCalled();
     });
 
-    it.skip('should display success message when all conflicts resolved', async () => {
+    it('should display success message when all conflicts resolved', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts'],
@@ -364,7 +379,7 @@ describe('resolveConflicts function', () => {
       expect(mockGitOps.getConflictStatus).toHaveBeenCalled();
     });
 
-    it.skip('should display partial success when some files failed', async () => {
+    it('should display partial success when some files failed', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts', 'file2.ts'],
@@ -411,7 +426,7 @@ describe('resolveConflicts function', () => {
   });
 
   describe('edge cases', () => {
-    it.skip('should handle single conflict correctly', async () => {
+    it('should handle single conflict correctly', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts'],
@@ -426,7 +441,7 @@ describe('resolveConflicts function', () => {
       expect(mockGitOps.getConflictStatus).toHaveBeenCalled();
     });
 
-    it.skip('should handle multiple conflicts in single file', async () => {
+    it('should handle multiple conflicts in single file', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['file1.ts'],
@@ -441,7 +456,7 @@ describe('resolveConflicts function', () => {
       expect(mockGitOps.getConflictStatus).toHaveBeenCalled();
     });
 
-    it.skip('should handle mixed oversized and normal files', async () => {
+    it('should handle mixed oversized and normal files', async () => {
       mockGitOps.getConflictStatus.mockResolvedValue({
         hasConflicts: true,
         files: ['bigfile.ts', 'normalfile.ts'],

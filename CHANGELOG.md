@@ -2,6 +2,17 @@
 
 All notable changes to `@quadbyte/git-conflicts` will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Comparison table in README (vs git mergetool, git diff, VS Code merge editor)
+- All 8 previously skipped tests now passing (332/332, was 324/332)
+- Tighter ESLint rules: `no-explicit-any` warn, `no-unused-vars` error
+
+### Fixed
+- ProgressTracker mock issue causing 8 tests to be skipped in cli.functions.test.ts
+- Coverage improvement: cli.ts 71% → 81%, overall 85% → 88%
+
 ## [1.1.0] - 2025-02-XX
 
 ### Added

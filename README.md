@@ -1,6 +1,16 @@
 # git-conflicts
 
-Interactive CLI to list and resolve merge conflicts one file at a time with progress tracking.
+Merge conflicts suck. `git diff --name-only --diff-filter=U` gives you a list — then you're on your own. git-conflicts gives you a guided workflow: one file at a time, editor opens automatically, conflict markers validated before moving on, progress tracked the whole way.
+
+## vs Other Tools
+
+| Tool | What it does | What it lacks |
+|---|---|---|
+| **git-conflicts** | Guided file-by-file resolution, editor integration, marker validation, progress tracking, JSON mode for CI | — |
+| `git mergetool` | Opens a diff tool per file | No progress tracking, requires GUI diff tool, complex config |
+| `git diff --diff-filter=U` | Lists conflicted files | No workflow — you manually open each file |
+| `git checkout --conflict=diff3` | Re-generates conflict markers | Doesn't help resolve them |
+| VS Code merge editor | Visual 3-way merge | IDE-bound, no CLI/CI integration |
 
 ## Problem
 
