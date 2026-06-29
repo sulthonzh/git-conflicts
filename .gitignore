@@ -27,7 +27,8 @@ Thumbs.db
 # Environment
 .env
 .env.local
-.env.*.local__pycache__/
+.env.*.local
+__pycache__/
 .venv/
 *.egg-info/
 .mypy_cache/
