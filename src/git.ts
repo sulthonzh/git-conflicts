@@ -224,29 +224,9 @@ export class GitOperations {
    */
   async getMergeState(): Promise<'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown'> {
     try {
-      const status = await this.git.status();
-      // Git conflict status codes are specific two-character combinations:
-      // DD (both deleted), AU (added by us), UD (deleted by them),
-      // UA (added by them), DU (deleted by us), AA (both added), UU (both modified)
-      // Checking individual chars against {U,A,D} incorrectly matches non-conflict
-      // states like AD (staged add + working tree deletion).
-      const conflictCodes = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
-      const hasUnmergedFiles = status.files.some(
-        (f: StatusFile) => conflictCodes.has(`${f.index}${f.working_dir ?? ''}`)
-      );
-
-      if (hasUnmergedFiles) {
-        return 'merge';
-      }
-
       const gitDir = await this.getAbsoluteGitDir();
-
-      // Check for MERGE_HEAD — present during any merge (even clean ones with --no-commit)
-      const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
-      if (existsSync(mergeHeadPath)) {
-        return 'merge';
-      }
-
+      // produce unmerged files. Checking unmerged files before these would
+      // misclassify a rebase conflict as a merge.
       const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
       if (existsSync(rebaseMergeDir)) {
         return 'rebase';
@@ -255,6 +235,23 @@ export class GitOperations {
       const cherryPickHead = resolve(gitDir, 'CHERRY_PICK_HEAD');
       if (existsSync(cherryPickHead)) {
         return 'cherry-pick';
+      }
+
+      // Check for MERGE_HEAD — present during any merge (even clean ones with --no-commit)
+      const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
+      if (existsSync(mergeHeadPath)) {
+        return 'merge';
+      }
+
+      // Check for unmerged files (conflict state without explicit merge/rebase metadata)
+      const status = await this.git.status();
+      const conflictCodes = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
+      const hasUnmergedFiles = status.files.some(
+        (f: StatusFile) => conflictCodes.has(`${f.index}${f.working_dir ?? ''}`)
+      );
+
+      if (hasUnmergedFiles) {
+        return 'merge';
       }
 
       return 'none';
