@@ -74,47 +74,52 @@ export class GitOperations {
       let mergeMessage: string | undefined;
 
       const gitDir = await this.getAbsoluteGitDir();
+      const mergeState = await this.getMergeState();
 
-      // Try to read .git/MERGE_MSG for merge context
-      try {
-        const mergeMsgPath = resolve(gitDir, 'MERGE_MSG');
-        if (existsSync(mergeMsgPath)) {
-          const msg = await readFile(mergeMsgPath, 'utf-8');
-          // Extract branch name from "Merge branch 'xyz'"
-          const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
-          if (match && match[1]) {
-            merging = match[1];
-          }
-          mergeMessage = msg.split('\n')[0].trim();
-        }
-      } catch {
-        // MERGE_MSG might not exist during rebase or cherry-pick
-      }
-
-      // Try to read .git/MERGE_HEAD for the commit being merged
-      if (!merging) {
+      // Only read MERGE_MSG during an actual merge — during rebase/cherry-pick,
+      // a stale MERGE_MSG from a prior merge would give misleading branch info
+      if (mergeState === 'merge') {
+        // Try to read .git/MERGE_MSG for merge context
         try {
-          const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
-          if (existsSync(mergeHeadPath)) {
-            const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
-            if (sha) {
-              // Get short ref name for the SHA
-              try {
-                const name = await this.git.nameRev(['--name-only', sha]);
-                const trimmedName = name.trim();
-                merging = trimmedName || sha.substring(0, 7);
-              } catch {
-                merging = sha.substring(0, 7);
-              }
+          const mergeMsgPath = resolve(gitDir, 'MERGE_MSG');
+          if (existsSync(mergeMsgPath)) {
+            const msg = await readFile(mergeMsgPath, 'utf-8');
+            // Extract branch name from "Merge branch 'xyz'"
+            const match = msg.match(/Merge branch ['"]([^'"]+)['"]/);
+            if (match && match[1]) {
+              merging = match[1];
             }
+            mergeMessage = msg.split('\n')[0].trim();
           }
         } catch {
-          // ignore
+          // MERGE_MSG might not exist or be readable
+        }
+
+        // Try to read .git/MERGE_HEAD for the commit being merged
+        if (!merging) {
+          try {
+            const mergeHeadPath = resolve(gitDir, 'MERGE_HEAD');
+            if (existsSync(mergeHeadPath)) {
+              const sha = (await readFile(mergeHeadPath, 'utf-8')).trim();
+              if (sha) {
+                // Get short ref name for the SHA
+                try {
+                  const name = await this.git.nameRev(['--name-only', sha]);
+                  const trimmedName = name.trim();
+                  merging = trimmedName || sha.substring(0, 7);
+                } catch {
+                  merging = sha.substring(0, 7);
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
         }
       }
 
       // During rebase, check rebase-merge directory for branch info
-      if (!merging) {
+      if (!merging && mergeState === 'rebase') {
         try {
           const headNamePath = resolve(gitDir, 'rebase-merge', 'head-name');
           if (existsSync(headNamePath)) {
@@ -122,6 +127,27 @@ export class GitOperations {
             // head-name is typically "refs/heads/branch-name"
             if (headName) {
               merging = headName.replace(/^refs\/heads\//, '');
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // During cherry-pick, try to get the picked commit's ref
+      if (!merging && mergeState === 'cherry-pick') {
+        try {
+          const cherryHeadPath = resolve(gitDir, 'CHERRY_PICK_HEAD');
+          if (existsSync(cherryHeadPath)) {
+            const sha = (await readFile(cherryHeadPath, 'utf-8')).trim();
+            if (sha) {
+              try {
+                const name = await this.git.nameRev(['--name-only', sha]);
+                const trimmedName = name.trim();
+                merging = trimmedName || sha.substring(0, 7);
+              } catch {
+                merging = sha.substring(0, 7);
+              }
             }
           }
         } catch {

@@ -421,11 +421,18 @@ describe('GitOperations - Coverage Boost', () => {
 
     it('should extract branch name from MERGE_MSG', async () => {
       (existsSync as jest.Mock).mockImplementation((path: string) => {
-        return path.includes('MERGE_MSG');
+        // MERGE_HEAD must exist so getMergeState() returns 'merge',
+        // otherwise MERGE_MSG is skipped (stale-during-rebase guard)
+        return path.includes('MERGE_MSG') || path.includes('MERGE_HEAD');
       });
-      (readFile as jest.Mock).mockResolvedValue(
-        "Merge branch 'feature-branch' into main\n\nSome commit message"
-      );
+      (readFile as jest.Mock).mockImplementation((path: string) => {
+        if (path.includes('MERGE_HEAD')) {
+          return Promise.resolve('abc123\n');
+        }
+        return Promise.resolve(
+          "Merge branch 'feature-branch' into main\n\nSome commit message"
+        );
+      });
 
       const result = await gitOps.getMergeInfo();
 
@@ -438,11 +445,14 @@ describe('GitOperations - Coverage Boost', () => {
 
     it('should extract branch name with double quotes', async () => {
       (existsSync as jest.Mock).mockImplementation((path: string) => {
-        return path.includes('MERGE_MSG');
+        return path.includes('MERGE_MSG') || path.includes('MERGE_HEAD');
       });
-      (readFile as jest.Mock).mockResolvedValue(
-        'Merge branch "feature-branch" into main'
-      );
+      (readFile as jest.Mock).mockImplementation((path: string) => {
+        if (path.includes('MERGE_HEAD')) {
+          return Promise.resolve('abc123\n');
+        }
+        return Promise.resolve('Merge branch "feature-branch" into main');
+      });
 
       const result = await gitOps.getMergeInfo();
 
