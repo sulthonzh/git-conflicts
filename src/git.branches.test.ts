@@ -216,7 +216,10 @@ describe('GitOperations - Branch Coverage', () => {
       expect(result).toBe('merge');
     });
 
-    it('should prioritize merge over rebase state', async () => {
+    it('should prioritize rebase over merge when both exist', async () => {
+      // When rebase-merge dir AND MERGE_HEAD both exist, rebase takes priority.
+      // Rebase internally uses merge mechanics, so MERGE_HEAD existing doesn't
+      // mean it's a standalone merge. The rebase-merge dir is the authoritative signal.
       mockGit.status.mockResolvedValue({
         files: [{ index: 'U', working_dir: 'U', path: 'file.ts' }]
       });
@@ -224,7 +227,7 @@ describe('GitOperations - Branch Coverage', () => {
 
       const result = await (gitOps as any).getMergeState();
 
-      expect(result).toBe('merge');
+      expect(result).toBe('rebase');
     });
 
     it('should check rebase-merge only when no conflict files', async () => {
