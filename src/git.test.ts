@@ -207,12 +207,37 @@ const d = 4;
   });
 
   describe('abortMerge', () => {
-    it('should call git merge --abort', async () => {
+    it('should call git merge --abort for merge state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('merge');
       mockGit.merge.mockResolvedValue(undefined);
 
       await gitOps.abortMerge();
 
       expect(mockGit.merge).toHaveBeenCalledWith(['--abort']);
+    });
+
+    it('should call git rebase --abort for rebase state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('rebase');
+      mockGit.raw.mockResolvedValue(undefined);
+
+      await gitOps.abortMerge();
+
+      expect(mockGit.raw).toHaveBeenCalledWith(['rebase', '--abort']);
+    });
+
+    it('should call git cherry-pick --abort for cherry-pick state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('cherry-pick');
+      mockGit.raw.mockResolvedValue(undefined);
+
+      await gitOps.abortMerge();
+
+      expect(mockGit.raw).toHaveBeenCalledWith(['cherry-pick', '--abort']);
+    });
+
+    it('should throw when not in any merge state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('none');
+
+      await expect(gitOps.abortMerge()).rejects.toThrow('Not in a merge state');
     });
   });
 

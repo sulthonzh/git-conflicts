@@ -317,7 +317,8 @@ const d = 4;
   });
 
   describe('abortMerge - edge cases', () => {
-    it('should call git merge --abort', async () => {
+    it('should call git merge --abort for merge state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('merge');
       mockGit.merge.mockResolvedValue(undefined);
 
       await gitOps.abortMerge();
@@ -325,7 +326,17 @@ const d = 4;
       expect(mockGit.merge).toHaveBeenCalledWith(['--abort']);
     });
 
+    it('should call git rebase --abort for rebase state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('rebase');
+      mockGit.raw.mockResolvedValue(undefined);
+
+      await gitOps.abortMerge();
+
+      expect(mockGit.raw).toHaveBeenCalledWith(['rebase', '--abort']);
+    });
+
     it('should handle abort already in progress', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('merge');
       mockGit.merge.mockResolvedValue(undefined);
 
       await gitOps.abortMerge();
@@ -428,6 +439,7 @@ const d = 4;
     });
 
     it('should handle git merge errors', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('merge');
       mockGit.merge.mockRejectedValue(new Error('Git merge failed'));
 
       await expect(gitOps.abortMerge()).rejects.toThrow();

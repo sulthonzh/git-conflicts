@@ -202,17 +202,35 @@ export class GitOperations {
     const matches = content.match(/^<<<<<<<.*$/gm);
     return matches ? matches.length : 0;
   }
-  /**
-   * Abort current merge
+/**
+   * Abort current merge/rebase/cherry-pick
+   * Detects the type of in-progress operation and calls the appropriate abort command.
    */
   async abortMerge(): Promise<void> {
     try {
-      await this.git.merge(['--abort']);
+      const mergeState = await this.getMergeState();
+
+      switch (mergeState) {
+        case 'rebase':
+          await this.git.raw(['rebase', '--abort']);
+          break;
+        case 'cherry-pick':
+          await this.git.raw(['cherry-pick', '--abort']);
+          break;
+        case 'merge':
+          await this.git.merge(['--abort']);
+          break;
+        default:
+          throw new Error('Not in a merge, rebase, or cherry-pick state');
+      }
     } catch (error) {
       if (error instanceof Error) {
         // Not in a merge state - this is a normal condition
         throw new Error(
-          error.message.includes('not a merge')
+          error.message.includes('not a merge') ||
+          error.message.includes('no rebase in progress') ||
+          error.message.includes('no cherry-pick') ||
+          error.message.includes('Not in a merge')
             ? 'Not in a merge state'
             : error.message
         );

@@ -157,22 +157,22 @@ describe('GitOperations - Branch Coverage', () => {
 
   describe('abortMerge - error handling', () => {
     it('should handle not in merge state error', async () => {
-      mockGit.merge.mockRejectedValue(new Error('not in a merge'));
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('none');
 
-      // The code transforms 'not in a merge' to 'Not in a merge state'
-      await expect(gitOps.abortMerge()).rejects.toThrow('not in a merge');
+      await expect(gitOps.abortMerge()).rejects.toThrow('Not in a merge state');
     });
 
     it('should handle other merge errors', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('merge');
       mockGit.merge.mockRejectedValue(new Error('Some other error'));
 
       await expect(gitOps.abortMerge()).rejects.toThrow('Some other error');
     });
 
     it('should handle non-error throw', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('merge');
       mockGit.merge.mockRejectedValue('string error');
 
-      // abortMerge re-throws non-error values without wrapping
       await expect(gitOps.abortMerge()).rejects.toBe('string error');
     });
   });

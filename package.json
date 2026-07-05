@@ -1,6 +1,6 @@
 {
   "name": "@quadbyte/git-conflicts",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "Interactive CLI to list and resolve merge conflicts one file at a time with progress tracking.",
   "main": "dist/index.js",
   "bin": {
