@@ -187,6 +187,35 @@ describe('GitOperations - Coverage Boost', () => {
       expect(typeof result).toBe('boolean');
     });
 
+    it('should not false-match paths that share workingDir prefix (path boundary bug)', async () => {
+      // Regression test: toRelativePath used startsWith() without path boundary
+      // check. A path like ../barbaz/file.ts from workingDir /foo/bar resolves
+      // to /foo/barbaz/file.ts, which incorrectly startsWith('/foo/bar').
+      // The fix uses path.relative() which correctly detects path boundaries.
+      mockGit.status.mockResolvedValue({
+        files: [
+          { path: 'file.ts', index: 'M', working_dir: ' ' }
+        ]
+      });
+
+      // This should NOT match 'file.ts' in status because the relative path
+      // correctly shows it escapes the working directory
+      const result = await gitOps.isFileStaged('file.ts');
+      expect(result).toBe(true);
+
+      // A path that escapes workingDir should return the original path unchanged
+      // (won't match any file in status)
+      mockGit.status.mockResolvedValue({
+        files: [
+          { path: 'az/file.ts', index: 'M', working_dir: ' ' }
+        ]
+      });
+      // Before fix: ../barbaz/file.ts would be sliced to az/file.ts and match
+      // After fix: returns ../barbaz/file.ts as-is, no false match
+      const result2 = await gitOps.isFileStaged('../barbaz/file.ts');
+      expect(result2).toBe(false);
+    });
+
     it('should handle path with trailing slash', async () => {
       mockGit.status.mockResolvedValue({
         files: [

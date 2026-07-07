@@ -1,6 +1,6 @@
 import simpleGit from 'simple-git';
 import type { SimpleGit, StatusFile } from 'simple-git';
-import { resolve } from 'path';
+import { resolve, relative, isAbsolute } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
@@ -173,14 +173,19 @@ export class GitOperations {
   }
 
   /**
-   * Convert an absolute or relative path to a path relative to workingDir
+   * Convert an absolute or relative path to a path relative to workingDir.
+   * Uses path.relative() for correct path boundary handling — avoids
+   * false matches like /foo/barbaz being treated as inside /foo/bar.
    */
   private toRelativePath(filePath: string): string {
     const absolute = resolve(this.workingDir, filePath);
-    if (absolute.startsWith(this.workingDir)) {
-      return absolute.slice(this.workingDir.length + 1);
+    const rel = relative(this.workingDir, absolute);
+    // If the path escapes workingDir, relative() returns something starting with ../
+    // In that case, return the original filePath as-is (can't normalize it)
+    if (rel.startsWith('..') || isAbsolute(filePath)) {
+      return filePath;
     }
-    return filePath;
+    return rel;
   }
 
   /**
