@@ -145,9 +145,15 @@ describe('GitOperations', () => {
       expect(gitOps.hasConflictMarkers(content)).toBe(true);
     });
 
-    it('should detect ======= markers', () => {
-      const content = '=======\nconst b = 2;';
+    it('should detect ======= markers only with other conflict markers', () => {
+      // ======= alone is ambiguous (markdown setext headings use the same syntax)
+      const content = '<<<<<<< HEAD\nconst a = 1;\n=======\nconst b = 2;\n>>>>>>> branch';
       expect(gitOps.hasConflictMarkers(content)).toBe(true);
+    });
+
+    it('should not detect ======= markers alone (false positive risk)', () => {
+      const content = '=======\nconst b = 2;';
+      expect(gitOps.hasConflictMarkers(content)).toBe(false);
     });
 
     it('should detect >>>>>>> markers', () => {

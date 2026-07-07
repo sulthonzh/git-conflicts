@@ -108,6 +108,52 @@ const b = 2;
     expect(gitOps.hasConflictMarkers(content)).toBe(true);
   });
 
+  it('should not false-positive on markdown setext headings without other markers', () => {
+    const content = `My Heading
+=======
+Some paragraph text.`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(false);
+  });
+
+  it('should not false-positive on ASCII art box with equals signs', () => {
+    const content = `// ===============================
+// Important Section Header
+// ===============================`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(false);
+  });
+
+  it('should detect ======= separator when other conflict markers present', () => {
+    const content = `<<<<<<< HEAD
+const a = 1;
+=======
+const b = 2;
+>>>>>>> branch`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(true);
+  });
+
+  it('should detect stray ======= with other markers in file', () => {
+    // Partially resolved: user removed <<<<<<< and >>>>>>> but left =======
+    const content = `const resolved = true;
+=======
+const old = false;\n<<<<<<< HEAD\nmore`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(true);
+  });
+
+  it('should detect ======= separator with trailing whitespace', () => {
+    const content = `<<<<<<< HEAD
+const a = 1;
+=======   \nconst b = 2;
+>>>>>>> branch`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(true);
+  });
+
+  it('should not detect equals signs with text after them as conflict marker', () => {
+    // =======text is not a valid conflict separator (git puts it on own line)
+    const content = `Section
+=======Important=======`;
+    expect(gitOps.hasConflictMarkers(content)).toBe(false);
+  });
+
   it('should count conflict markers correctly', () => {
     const content = `<<<<<<< HEAD
 const a = 1;

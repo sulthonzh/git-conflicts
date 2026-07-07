@@ -194,9 +194,21 @@ export class GitOperations {
    * from strings/comments that happen to contain marker-like text.
    */
   hasConflictMarkers(content: string): boolean {
-    // Check for any of the four conflict marker types at line start
-    // <<<<<<< = ours, ======= = separator, >>>>>>> = theirs, ||||||| = base (diff3)
-    return /^(<<<<<<<|=======|>>>>>>>|\|\|\|\|\|\|\|)/m.test(content);
+    // <<<<<<<, >>>>>>>, and ||||||| are distinctive enough to prefix-match
+    // since 7+ angle brackets or pipes never appear in normal content.
+    const hasDistinctive = /^(<<<<<<<|>>>>>>>|\|\|\|\|\|\|\|)/m.test(content);
+    if (hasDistinctive) return true;
+
+    // ======= is ambiguous — 7+ '=' at line start also matches markdown
+    // setext headings and ASCII art. Only treat it as a conflict marker
+    // if it's on its own line (with optional trailing whitespace) AND
+    // at least one other conflict marker type is present in the file.
+    // Checking for co-occurring markers avoids false positives while
+    // still detecting partially-resolved conflicts that retain a stray separator.
+    if (/^={7}\s*$/m.test(content)) {
+      return /(^<{7}|^>{7}|^\|{7})/m.test(content);
+    }
+    return false;
   }
 
   /**

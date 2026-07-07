@@ -202,9 +202,14 @@ describe('GitOperations - Extended Coverage', () => {
       expect(gitOps.hasConflictMarkers(content)).toBe(false);
     });
 
-    it('should detect ======= at start of line', () => {
-      const content = '=======\nconst b = 2;';
+    it('should detect ======= at start of line with other markers present', () => {
+      const content = '<<<<<<< HEAD\nconst a = 1;\n=======\nconst b = 2;\n>>>>>>> branch';
       expect(gitOps.hasConflictMarkers(content)).toBe(true);
+    });
+
+    it('should not detect ======= alone at start of line (ambiguous with setext)', () => {
+      const content = '=======\nconst b = 2;';
+      expect(gitOps.hasConflictMarkers(content)).toBe(false);
     });
 
     it('should not detect ======= with leading whitespace', () => {
