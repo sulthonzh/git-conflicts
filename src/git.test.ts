@@ -128,6 +128,16 @@ describe('GitOperations', () => {
       mockGetMergeState.mockRestore();
     });
 
+    it('should return true when getMergeState returns "revert"', async () => {
+      const mockGetMergeState = jest.spyOn(gitOps as any, 'getMergeState')
+        .mockResolvedValue('revert');
+
+      const result = await gitOps.isMergeInProgress();
+
+      expect(result).toBe(true);
+      mockGetMergeState.mockRestore();
+    });
+
     it('should return false on error', async () => {
       const mockGetMergeState = jest.spyOn(gitOps as any, 'getMergeState')
         .mockRejectedValue(new Error('Error'));
@@ -238,6 +248,15 @@ const d = 4;
       await gitOps.abortMerge();
 
       expect(mockGit.raw).toHaveBeenCalledWith(['cherry-pick', '--abort']);
+    });
+
+    it('should call git revert --abort for revert state', async () => {
+      jest.spyOn(gitOps as any, 'getMergeState').mockResolvedValue('revert');
+      mockGit.raw.mockResolvedValue(undefined);
+
+      await gitOps.abortMerge();
+
+      expect(mockGit.raw).toHaveBeenCalledWith(['revert', '--abort']);
     });
 
     it('should throw when not in any merge state', async () => {

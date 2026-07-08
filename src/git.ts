@@ -118,15 +118,20 @@ export class GitOperations {
         }
       }
 
-      // During rebase, check rebase-merge directory for branch info
+      // During rebase, check rebase-merge and rebase-apply directories for branch info
       if (!merging && mergeState === 'rebase') {
         try {
-          const headNamePath = resolve(gitDir, 'rebase-merge', 'head-name');
-          if (existsSync(headNamePath)) {
-            const headName = (await readFile(headNamePath, 'utf-8')).trim();
-            // head-name is typically "refs/heads/branch-name"
-            if (headName) {
-              merging = headName.replace(/^refs\/heads\//, '');
+          // rebase-merge (modern backend, default since git 2.26)
+          // rebase-apply (legacy --apply backend)
+          for (const rebaseDir of ['rebase-merge', 'rebase-apply']) {
+            const headNamePath = resolve(gitDir, rebaseDir, 'head-name');
+            if (existsSync(headNamePath)) {
+              const headName = (await readFile(headNamePath, 'utf-8')).trim();
+              // head-name is typically "refs/heads/branch-name"
+              if (headName) {
+                merging = headName.replace(/^refs\/heads\//, '');
+                break;
+              }
             }
           }
         } catch {
@@ -140,6 +145,27 @@ export class GitOperations {
           const cherryHeadPath = resolve(gitDir, 'CHERRY_PICK_HEAD');
           if (existsSync(cherryHeadPath)) {
             const sha = (await readFile(cherryHeadPath, 'utf-8')).trim();
+            if (sha) {
+              try {
+                const name = await this.git.nameRev(['--name-only', sha]);
+                const trimmedName = name.trim();
+                merging = trimmedName || sha.substring(0, 7);
+              } catch {
+                merging = sha.substring(0, 7);
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // During revert, try to get the reverted commit's ref
+      if (!merging && mergeState === 'revert') {
+        try {
+          const revertHeadPath = resolve(gitDir, 'REVERT_HEAD');
+          if (existsSync(revertHeadPath)) {
+            const sha = (await readFile(revertHeadPath, 'utf-8')).trim();
             if (sha) {
               try {
                 const name = await this.git.nameRev(['--name-only', sha]);
@@ -234,11 +260,14 @@ export class GitOperations {
         case 'cherry-pick':
           await this.git.raw(['cherry-pick', '--abort']);
           break;
+        case 'revert':
+          await this.git.raw(['revert', '--abort']);
+          break;
         case 'merge':
           await this.git.merge(['--abort']);
           break;
         default:
-          throw new Error('Not in a merge, rebase, or cherry-pick state');
+          throw new Error('Not in a merge, rebase, cherry-pick, or revert state');
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -247,6 +276,7 @@ export class GitOperations {
           error.message.includes('not a merge') ||
           error.message.includes('no rebase in progress') ||
           error.message.includes('no cherry-pick') ||
+          error.message.includes('no revert in progress') ||
           error.message.includes('Not in a merge')
             ? 'Not in a merge state'
             : error.message
@@ -283,19 +313,29 @@ export class GitOperations {
    * Check if we're in a merge or rebase state
    * Returns a more specific status for better error messages
    */
-  async getMergeState(): Promise<'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown'> {
+  async getMergeState(): Promise<'none' | 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'unknown'> {
     try {
       const gitDir = await this.getAbsoluteGitDir();
-      // produce unmerged files. Checking unmerged files before these would
-      // misclassify a rebase conflict as a merge.
+      // rebase-merge (modern backend, default since git 2.26) and rebase-apply
+      // (legacy --apply backend) both produce unmerged files. Checking unmerged
+      // files before these would misclassify a rebase conflict as a merge.
       const rebaseMergeDir = resolve(gitDir, 'rebase-merge');
       if (existsSync(rebaseMergeDir)) {
+        return 'rebase';
+      }
+      const rebaseApplyDir = resolve(gitDir, 'rebase-apply');
+      if (existsSync(rebaseApplyDir)) {
         return 'rebase';
       }
 
       const cherryPickHead = resolve(gitDir, 'CHERRY_PICK_HEAD');
       if (existsSync(cherryPickHead)) {
         return 'cherry-pick';
+      }
+
+      const revertHead = resolve(gitDir, 'REVERT_HEAD');
+      if (existsSync(revertHead)) {
+        return 'revert';
       }
 
       // Check for MERGE_HEAD — present during any merge (even clean ones with --no-commit)
@@ -330,7 +370,7 @@ export class GitOperations {
     branch: string;
     merging?: string;
     mergeMessage?: string;
-    mergeState: 'none' | 'merge' | 'rebase' | 'cherry-pick' | 'unknown';
+    mergeState: 'none' | 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'unknown';
   }> {
     try {
       const files = await this.getConflictedFiles();

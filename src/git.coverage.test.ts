@@ -684,6 +684,42 @@ describe('GitOperations - Coverage Boost', () => {
       expect(result).toBe('cherry-pick');
     });
 
+    it('should detect revert state via REVERT_HEAD', async () => {
+      mockGit.status.mockResolvedValue({ files: [] });
+      mockGit.revparse.mockResolvedValue('/absolute/path/.git');
+      (existsSync as jest.Mock).mockImplementation((path: string) => {
+        return path.includes('REVERT_HEAD');
+      });
+      (readFile as jest.Mock).mockResolvedValue('abc123\n');
+
+      const result = await (gitOps as any).getMergeState();
+
+      expect(result).toBe('revert');
+    });
+
+    it('should detect rebase-apply (legacy backend) via directory', async () => {
+      mockGit.status.mockResolvedValue({ files: [] });
+      mockGit.revparse.mockResolvedValue('/absolute/path/.git');
+      (existsSync as jest.Mock).mockImplementation((path: string) => {
+        return path.includes('rebase-apply');
+      });
+
+      const result = await (gitOps as any).getMergeState();
+
+      expect(result).toBe('rebase');
+    });
+
+    it('should prefer rebase-merge over rebase-apply when both exist', async () => {
+      mockGit.status.mockResolvedValue({ files: [] });
+      mockGit.revparse.mockResolvedValue('/absolute/path/.git');
+      (existsSync as jest.Mock).mockReturnValue(true);
+
+      const result = await (gitOps as any).getMergeState();
+
+      // rebase-merge is checked first
+      expect(result).toBe('rebase');
+    });
+
     it('should return unknown on git status error', async () => {
       mockGit.status.mockRejectedValue(new Error('Git error'));
 
