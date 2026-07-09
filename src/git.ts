@@ -1,6 +1,6 @@
 import simpleGit from 'simple-git';
 import type { SimpleGit, StatusFile } from 'simple-git';
-import { resolve, relative, isAbsolute } from 'path';
+import { resolve, relative } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
@@ -208,7 +208,7 @@ export class GitOperations {
     const rel = relative(this.workingDir, absolute);
     // If the path escapes workingDir, relative() returns something starting with ../
     // In that case, return the original filePath as-is (can't normalize it)
-    if (rel.startsWith('..') || isAbsolute(filePath)) {
+    if (rel.startsWith('..')) {
       return filePath;
     }
     return rel;

@@ -413,5 +413,18 @@ describe('GitOperations - Branch Coverage', () => {
 
       expect(result1).toBe(result2);
     });
+
+    it('should match absolute path inside workingDir (regression: isAbsolute check)', async () => {
+      // Regression: toRelativePath had `isAbsolute(filePath)` check that
+      // returned the original absolute path even when it was inside
+      // workingDir, causing isFileConflicted/isFileStaged/isFileModified
+      // to fail matching against git's relative path output.
+      const cwd = process.cwd();
+      mockGit.diff.mockResolvedValue('src/file.ts');
+
+      const result = await gitOps.isFileConflicted(cwd + '/src/file.ts');
+
+      expect(result).toBe(true);
+    });
   });
 });
