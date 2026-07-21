@@ -25,9 +25,13 @@ When `git merge` fails, developers face pain points:
 - ✅ List conflicted files with progress counter
 - ✅ Open each file in your preferred `$EDITOR`
 - ✅ Validate conflict markers are resolved before continuing
+- ✅ Auto-stage resolved files with `--stage`
+- ✅ JSON output mode for CI/CD integration with `--json`
+- ✅ Custom working directory support with `--cwd`
 - ✅ Cross-platform (macOS, Linux, Windows)
 - ✅ Continue/abort functionality
 - ✅ Zero configuration required
+- ✅ Detects conflicts from merge, rebase, and cherry-pick operations
 
 ## Installation
 

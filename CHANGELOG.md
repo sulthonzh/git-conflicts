@@ -13,7 +13,13 @@ All notable changes to `@quadbyte/git-conflicts` will be documented in this file
 - ProgressTracker mock issue causing 8 tests to be skipped in cli.functions.test.ts
 - Coverage improvement: cli.ts 71% → 81%, overall 85% → 88%
 
-## [1.1.0] - 2025-02-XX
+## [0.0.43] - 2025-07-21
+
+### Fixed
+- Version sync: 0.0.42 → 0.0.43 to match git tag
+- CHANGELOG updated to reflect accurate version history (removed placeholder 1.1.0/1.0.0 entries)
+
+## [0.0.42] - 2025-07-19
 
 ### Added
 - Comprehensive test suite with 198 tests (100% pass rate)
