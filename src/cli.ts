@@ -8,10 +8,13 @@ import { ConflictResolver } from './resolver';
 
 const program = new Command();
 
+// Read version from package.json to keep CLI and package.json in sync
+const pkg = require('../package.json');
+
 program
   .name('git-conflicts')
   .description('Interactive CLI to list and resolve merge conflicts')
-  .version('0.0.42');
+  .version(pkg.version);
 
 program
   .command('resolve', { isDefault: true })
