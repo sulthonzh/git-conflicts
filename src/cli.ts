@@ -5,11 +5,10 @@ import chalk from 'chalk';
 import { GitOperations } from './git';
 import { ProgressTracker } from './progress';
 import { ConflictResolver } from './resolver';
+// Read version from package.json to keep CLI and package.json in sync
+import * as pkg from '../package.json';
 
 const program = new Command();
-
-// Read version from package.json to keep CLI and package.json in sync
-const pkg = require('../package.json');
 
 program
   .name('git-conflicts')
