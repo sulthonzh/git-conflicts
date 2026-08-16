@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
 
 concurrency:
   group: release-${{ github.ref }}
@@ -17,6 +18,7 @@ jobs:
   release:
     name: Version & Publish
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,7 +32,7 @@ jobs:
       - run: npm ci
 
       - name: Create Release Pull Request or Publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2.1.0
         with:
           version-script: npx changeset version
           commit-message: "chore(release): version packages"
