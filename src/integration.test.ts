@@ -37,7 +37,7 @@ describe('CLI Integration Tests', () => {
     tempRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'git-conflicts-test-'));
 
     // Initialize git repo
-    execSync('git init', { cwd: tempRepo });
+    execSync('git init -b main', { cwd: tempRepo });
     execSync('git config user.email "test@example.com"', { cwd: tempRepo });
     execSync('git config user.name "Test User"', { cwd: tempRepo });
     execSync('git commit --allow-empty -m "Initial commit"', { cwd: tempRepo });
